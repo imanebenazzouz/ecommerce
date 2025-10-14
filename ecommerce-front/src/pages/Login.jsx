@@ -28,7 +28,17 @@ export default function Login() {
     } catch (err) {
       console.error("Erreur login:", err);
       // Récupérer un message d'erreur plus précis
-      setError(err?.message || "Erreur de connexion, veuillez réessayer.");
+      let errorMessage = "Erreur de connexion, veuillez réessayer.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err?.toString) {
+        errorMessage = err.toString();
+      }
+      
+      setError(errorMessage);
     } finally {
       setPending(false);
     }
@@ -37,6 +47,23 @@ export default function Login() {
   return (
     <div style={{ padding: 40 }}>
       <h2>Connexion</h2>
+      
+      {/* Comptes de test pour faciliter le développement */}
+      <div style={{ 
+        backgroundColor: "#f0f0f0", 
+        padding: 16, 
+        borderRadius: 8, 
+        marginBottom: 20,
+        border: "1px solid #ddd"
+      }}>
+        <h3 style={{ margin: "0 0 8px 0", fontSize: 14 }}>🧪 Comptes de test :</h3>
+        <p style={{ margin: "4px 0", fontSize: 12 }}>
+          <strong>Admin:</strong> admin@example.com / admin
+        </p>
+        <p style={{ margin: "4px 0", fontSize: 12 }}>
+          <strong>Client:</strong> client@example.com / secret
+        </p>
+      </div>
       <form onSubmit={handleSubmit} noValidate style={{ maxWidth: 360 }}>
         <label style={{ display: "block", marginBottom: 8 }}>
           Email

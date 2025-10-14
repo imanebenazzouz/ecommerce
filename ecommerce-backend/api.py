@@ -15,11 +15,16 @@ from backend_demo import (
 
 app = FastAPI(title="Ecommerce API (TP)")
 
-# Autoriser ton front (localhost:5173)
+# Configuration CORS pour permettre l'accès depuis le frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:3000",  # React dev server alternatif
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,  # Permettre les cookies/credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,8 +54,8 @@ if not products.list_active():
     products.add(p1)
     products.add(p2)
     try:
-        auth.register("admin@shop.test", "admin", "Admin", "Root", "1 Rue du BO", is_admin=True)
-        auth.register("client@shop.test", "secret", "Alice", "Martin", "12 Rue des Fleurs")
+        auth.register("admin@example.com", "admin", "Admin", "Root", "1 Rue du BO", is_admin=True)
+        auth.register("client@example.com", "secret", "Alice", "Martin", "12 Rue des Fleurs")
     except Exception:
         pass
 
@@ -151,6 +156,11 @@ class OrderOut(BaseModel):
 
 
 # -------------------- Routes --------------------
+
+# Route de test
+@app.get("/")
+def root():
+    return {"message": "Ecommerce API is running!", "version": "1.0"}
 
 # Authentification
 @app.post("/auth/register", response_model=UserOut)

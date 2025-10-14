@@ -21,7 +21,19 @@ export default function Register() {
         first_name: form.first_name, last_name: form.last_name, address: form.address,
       });
       setOk("Compte créé ✅ — connecte-toi"); setForm({ email:"", password:"", confirm:"", first_name:"", last_name:"", address:"" });
-    } catch(e){ setErr(e.message); }
+    } catch(e){ 
+      let errorMessage = "Erreur lors de l'inscription, veuillez réessayer.";
+      
+      if (e?.message) {
+        errorMessage = e.message;
+      } else if (typeof e === 'string') {
+        errorMessage = e;
+      } else if (e?.toString) {
+        errorMessage = e.toString();
+      }
+      
+      setErr(errorMessage); 
+    }
   }
 
   function onChange(e){ setForm({ ...form, [e.target.name]: e.target.value }); }
