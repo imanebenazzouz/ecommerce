@@ -4,6 +4,7 @@ import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
+import './styles/global.css';
 
 export default function App() {
   return (
