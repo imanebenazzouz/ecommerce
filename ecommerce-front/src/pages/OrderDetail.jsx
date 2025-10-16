@@ -257,6 +257,49 @@ export default function OrderDetail() {
             </div>
           </div>
 
+          {/* Informations de livraison */}
+          {order.delivery && (
+            <div style={{ marginTop: 20 }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600 }}>
+                📦 Suivi de livraison
+              </h4>
+              <div style={{
+                padding: 16,
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                backgroundColor: "#f9fafb"
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ color: "#6b7280", fontSize: 14 }}>Transporteur :</span>
+                  <span style={{ fontWeight: 600 }}>{order.delivery.transporteur}</span>
+                </div>
+                {order.delivery.tracking_number && (
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ color: "#6b7280", fontSize: 14 }}>Numéro de suivi :</span>
+                    <span style={{ fontWeight: 600, fontFamily: "monospace" }}>
+                      {order.delivery.tracking_number}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "#6b7280", fontSize: 14 }}>Statut :</span>
+                  <div style={{
+                    padding: "4px 8px",
+                    backgroundColor: order.delivery.delivery_status === "LIVRÉE" ? "#dcfce7" : 
+                                   order.delivery.delivery_status === "EN_COURS" ? "#dbeafe" : "#fef3c7",
+                    color: order.delivery.delivery_status === "LIVRÉE" ? "#166534" : 
+                           order.delivery.delivery_status === "EN_COURS" ? "#1e40af" : "#92400e",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}>
+                    {order.delivery.delivery_status}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
             {invoice && (

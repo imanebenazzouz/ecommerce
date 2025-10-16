@@ -161,6 +161,11 @@ async function getInvoice(orderId) {
   return request(`/orders/${orderId}/invoice`);
 }
 
+// GET /orders/:id/tracking
+async function getOrderTracking(orderId) {
+  return request(`/orders/${orderId}/tracking`);
+}
+
 // POST /payments (nouveau système avec idempotence)
 async function processPayment({ orderId, cardLast4, idempotencyKey }) {
   return request("/payments", {
@@ -254,4 +259,7 @@ export const api = {
   adminShipOrder,
   adminMarkDelivered,
   adminRefundOrder,
+  
+  // Suivi de livraison
+  getOrderTracking,
 };

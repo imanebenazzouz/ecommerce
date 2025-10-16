@@ -200,6 +200,36 @@ export default function Orders() {
                     ... et {order.items.length - 2} autre{order.items.length - 2 > 1 ? "s" : ""}
                   </p>
                 )}
+                
+                {/* Informations de livraison */}
+                {order.delivery && (
+                  <div style={{ 
+                    marginTop: 8, 
+                    padding: "8px 12px", 
+                    backgroundColor: "#f9fafb", 
+                    borderRadius: 6,
+                    border: "1px solid #e5e7eb"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ color: "#6b7280", fontSize: 12 }}>
+                        📦 {order.delivery.transporteur}
+                        {order.delivery.tracking_number && ` • ${order.delivery.tracking_number}`}
+                      </span>
+                      <div style={{
+                        padding: "2px 6px",
+                        backgroundColor: order.delivery.delivery_status === "LIVRÉE" ? "#dcfce7" : 
+                                       order.delivery.delivery_status === "EN_COURS" ? "#dbeafe" : "#fef3c7",
+                        color: order.delivery.delivery_status === "LIVRÉE" ? "#166534" : 
+                               order.delivery.delivery_status === "EN_COURS" ? "#1e40af" : "#92400e",
+                        borderRadius: 8,
+                        fontSize: 10,
+                        fontWeight: 600
+                      }}>
+                        {order.delivery.delivery_status}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
