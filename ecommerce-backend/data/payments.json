@@ -1,0 +1,34 @@
+{
+  "021b375f-1c99-4861-ab1d-a304a39da70a": {
+    "id": "021b375f-1c99-4861-ab1d-a304a39da70a",
+    "order_id": "50b75855-690c-4a7d-95e1-718974dd64f1",
+    "amount_cents": 1999,
+    "succeeded": true,
+    "created_at": 1760614077.457772,
+    "idempotency_key": "50b75855-690c-4a7d-95e1-718974dd64f1_1760614077"
+  },
+  "df398738-3f20-4b8d-953d-c035dd16d21e": {
+    "id": "df398738-3f20-4b8d-953d-c035dd16d21e",
+    "order_id": "71459990-885d-44ca-ad39-1624c7f76423",
+    "user_id": "4815c280-ebce-425e-b599-ed24fb3d805f",
+    "amount_cents": 3998,
+    "provider": "CB",
+    "provider_ref": "dfc5f69d-7483-41d4-b94f-1b00348628d3",
+    "succeeded": true,
+    "created_at": 1760620160.327608,
+    "idempotency_key": "71459990-885d-44ca-ad39-1624c7f76423_1760620160",
+    "card_last4": "1111"
+  },
+  "e06fd916-4921-4103-8a55-a2c095fc5f74": {
+    "id": "e06fd916-4921-4103-8a55-a2c095fc5f74",
+    "order_id": "93b40da0-8a53-40aa-8e7f-46402924c2d6",
+    "user_id": "4815c280-ebce-425e-b599-ed24fb3d805f",
+    "amount_cents": 1999,
+    "provider": "CB",
+    "provider_ref": "689819fd-f450-4524-b91d-f38b5df6a25a",
+    "succeeded": true,
+    "created_at": 1760620292.766695,
+    "idempotency_key": "93b40da0-8a53-40aa-8e7f-46402924c2d6_1760620292750_6w7vewjgt",
+    "card_last4": "1234"
+  }
+}

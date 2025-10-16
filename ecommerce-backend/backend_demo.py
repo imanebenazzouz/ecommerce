@@ -4,6 +4,8 @@ from enum import Enum, auto
 from typing import Dict, List, Optional
 import uuid
 import time
+import hashlib
+from persistent_storage import persistent_storage
 
 # =========================
 # ========== Domain =======
@@ -233,10 +235,98 @@ class OrderRepository:
     def __init__(self):
         self._by_id: Dict[str, Order] = {}
         self._by_user: Dict[str, List[str]] = {}
+        self._load_from_storage()
+
+    def _load_from_storage(self):
+        """Charge les commandes depuis le stockage persistant"""
+        try:
+            orders_data = persistent_storage.get_all_items("orders")
+            for order_data in orders_data:
+                order = self._dict_to_order(order_data)
+                self._by_id[order.id] = order
+                self._by_user.setdefault(order.user_id, []).append(order.id)
+        except Exception as e:
+            print(f"Erreur lors du chargement des commandes: {e}")
+
+    def _order_to_dict(self, order: Order) -> Dict:
+        """Convertit une commande en dictionnaire pour la sauvegarde"""
+        return {
+            'id': order.id,
+            'user_id': order.user_id,
+            'items': [
+                {
+                    'product_id': item.product_id,
+                    'name': item.name,
+                    'unit_price_cents': item.unit_price_cents,
+                    'quantity': item.quantity
+                }
+                for item in order.items
+            ],
+            'status': order.status.name,
+            'created_at': order.created_at,
+            'validated_at': order.validated_at,
+            'shipped_at': order.shipped_at,
+            'delivered_at': order.delivered_at,
+            'cancelled_at': order.cancelled_at,
+            'refunded_at': order.refunded_at,
+            'payment_id': order.payment_id,
+            'invoice_id': order.invoice_id,
+            'delivery': self._delivery_to_dict(order.delivery) if order.delivery else None
+        }
+
+    def _dict_to_order(self, data: Dict) -> Order:
+        """Convertit un dictionnaire en commande"""
+        order = Order(
+            id=data['id'],
+            user_id=data['user_id'],
+            items=[
+                OrderItem(
+                    product_id=item['product_id'],
+                    name=item['name'],
+                    unit_price_cents=item['unit_price_cents'],
+                    quantity=item['quantity']
+                )
+                for item in data['items']
+            ],
+            status=OrderStatus[data['status']],
+            created_at=data['created_at'],
+            validated_at=data.get('validated_at'),
+            shipped_at=data.get('shipped_at'),
+            delivered_at=data.get('delivered_at'),
+            cancelled_at=data.get('cancelled_at'),
+            refunded_at=data.get('refunded_at'),
+            payment_id=data.get('payment_id'),
+            invoice_id=data.get('invoice_id'),
+            delivery=self._dict_to_delivery(data.get('delivery')) if data.get('delivery') else None
+        )
+        return order
+
+    def _delivery_to_dict(self, delivery: Delivery) -> Dict:
+        """Convertit une livraison en dictionnaire"""
+        return {
+            'id': delivery.id,
+            'order_id': delivery.order_id,
+            'transporteur': delivery.transporteur,
+            'tracking_number': delivery.tracking_number,
+            'address': delivery.address,
+            'delivery_status': delivery.delivery_status.value
+        }
+
+    def _dict_to_delivery(self, data: Dict) -> Delivery:
+        """Convertit un dictionnaire en livraison"""
+        return Delivery(
+            id=data['id'],
+            order_id=data['order_id'],
+            transporteur=data['transporteur'],
+            tracking_number=data.get('tracking_number'),
+            address=data['address'],
+            delivery_status=DeliveryStatus(data['delivery_status'])
+        )
 
     def add(self, order: Order):
         self._by_id[order.id] = order
         self._by_user.setdefault(order.user_id, []).append(order.id)
+        persistent_storage.save_item("orders", order.id, self._order_to_dict(order))
 
     def get(self, order_id: str) -> Optional[Order]:
         return self._by_id.get(order_id)
@@ -246,13 +336,66 @@ class OrderRepository:
 
     def update(self, order: Order):
         self._by_id[order.id] = order
+        persistent_storage.save_item("orders", order.id, self._order_to_dict(order))
 
 class InvoiceRepository:
     def __init__(self):
         self._by_id: Dict[str, Invoice] = {}
+        self._load_from_storage()
+
+    def _load_from_storage(self):
+        """Charge les factures depuis le stockage persistant"""
+        try:
+            invoices_data = persistent_storage.get_all_items("invoices")
+            for invoice_data in invoices_data:
+                invoice = self._dict_to_invoice(invoice_data)
+                self._by_id[invoice.id] = invoice
+        except Exception as e:
+            print(f"Erreur lors du chargement des factures: {e}")
+
+    def _invoice_to_dict(self, invoice: Invoice) -> Dict:
+        """Convertit une facture en dictionnaire pour la sauvegarde"""
+        return {
+            'id': invoice.id,
+            'order_id': invoice.order_id,
+            'user_id': invoice.user_id,
+            'lines': [
+                {
+                    'product_id': line.product_id,
+                    'name': line.name,
+                    'unit_price_cents': line.unit_price_cents,
+                    'quantity': line.quantity,
+                    'line_total_cents': line.line_total_cents
+                }
+                for line in invoice.lines
+            ],
+            'total_cents': invoice.total_cents,
+            'issued_at': invoice.issued_at
+        }
+
+    def _dict_to_invoice(self, data: Dict) -> Invoice:
+        """Convertit un dictionnaire en facture"""
+        return Invoice(
+            id=data['id'],
+            order_id=data['order_id'],
+            user_id=data['user_id'],
+            lines=[
+                InvoiceLine(
+                    product_id=line['product_id'],
+                    name=line['name'],
+                    unit_price_cents=line['unit_price_cents'],
+                    quantity=line['quantity'],
+                    line_total_cents=line['line_total_cents']
+                )
+                for line in data['lines']
+            ],
+            total_cents=data['total_cents'],
+            issued_at=data['issued_at']
+        )
 
     def add(self, invoice: Invoice):
         self._by_id[invoice.id] = invoice
+        persistent_storage.save_item("invoices", invoice.id, self._invoice_to_dict(invoice))
 
     def get(self, invoice_id: str) -> Optional[Invoice]:
         return self._by_id.get(invoice_id)
@@ -261,11 +404,54 @@ class PaymentRepository:
     def __init__(self):
         self._by_id: Dict[str, Payment] = {}
         self._by_idempotency: Dict[str, Payment] = {}  # idempotency_key -> Payment
+        self._load_from_storage()
+
+    def _load_from_storage(self):
+        """Charge les paiements depuis le stockage persistant"""
+        try:
+            payments_data = persistent_storage.get_all_items("payments")
+            for payment_data in payments_data:
+                payment = self._dict_to_payment(payment_data)
+                self._by_id[payment.id] = payment
+                if payment.idempotency_key:
+                    self._by_idempotency[payment.idempotency_key] = payment
+        except Exception as e:
+            print(f"Erreur lors du chargement des paiements: {e}")
+
+    def _payment_to_dict(self, payment: Payment) -> Dict:
+        """Convertit un paiement en dictionnaire pour la sauvegarde"""
+        return {
+            'id': payment.id,
+            'order_id': payment.order_id,
+            'user_id': payment.user_id,
+            'amount_cents': payment.amount_cents,
+            'provider': payment.provider,
+            'provider_ref': payment.provider_ref,
+            'succeeded': payment.succeeded,
+            'created_at': payment.created_at,
+            'idempotency_key': payment.idempotency_key,
+            'card_last4': payment.card_last4
+        }
+
+    def _dict_to_payment(self, data: Dict) -> Payment:
+        """Convertit un dictionnaire en paiement"""
+        return Payment(
+            id=data['id'],
+            order_id=data['order_id'],
+            user_id=data.get('user_id', 'unknown'),  # Valeur par défaut pour compatibilité
+            amount_cents=data['amount_cents'],
+            provider=data.get('provider', 'CB'),  # Valeur par défaut pour compatibilité
+            provider_ref=data.get('provider_ref', None),
+            succeeded=data['succeeded'],
+            created_at=data['created_at'],
+            idempotency_key=data.get('idempotency_key')
+        )
 
     def add(self, payment: Payment):
         self._by_id[payment.id] = payment
         if payment.idempotency_key:
             self._by_idempotency[payment.idempotency_key] = payment
+        persistent_storage.save_item("payments", payment.id, self._payment_to_dict(payment))
 
     def get(self, payment_id: str) -> Optional[Payment]:
         return self._by_id.get(payment_id)
@@ -294,7 +480,7 @@ class PasswordHasher:
     @staticmethod
     def hash(password: str) -> str:
         # Simple (à remplacer par bcrypt/argon2)
-        return f"sha256::{hash(password)}"
+        return f"sha256::{hashlib.sha256(password.encode()).hexdigest()}"
 
     @staticmethod
     def verify(password: str, stored_hash: str) -> bool:

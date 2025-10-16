@@ -249,20 +249,27 @@ export default function Orders() {
                 </Link>
                 
                 {order.status === "PAYEE" && (
-                  <Link
-                    to={`/orders/${order.id}/invoice`}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.downloadInvoicePDF(order.id);
+                      } catch (err) {
+                        alert("Erreur lors du téléchargement : " + (err.message || "Erreur inconnue"));
+                      }
+                    }}
                     style={{
                       padding: "8px 16px",
                       backgroundColor: "#dbeafe",
                       color: "#1d4ed8",
-                      textDecoration: "none",
+                      border: "none",
                       borderRadius: 6,
                       fontSize: 14,
-                      fontWeight: 600
+                      fontWeight: 600,
+                      cursor: "pointer"
                     }}
                   >
-                    📄 Facture
-                  </Link>
+                    📄 Facture PDF
+                  </button>
                 )}
 
                 {(order.status === "CREE" || order.status === "PAYEE") && order.status !== "EXPEDIEE" && (

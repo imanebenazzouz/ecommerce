@@ -161,6 +161,31 @@ async function getInvoice(orderId) {
   return request(`/orders/${orderId}/invoice`);
 }
 
+// GET /orders/:id/invoice/download - téléchargement PDF
+async function downloadInvoicePDF(orderId) {
+  const token = getToken();
+  const response = await fetch(API + `/orders/${orderId}/invoice/download`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erreur de téléchargement: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `facture_${orderId.slice(-8)}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
 // GET /orders/:id/tracking
 async function getOrderTracking(orderId) {
   return request(`/orders/${orderId}/tracking`);
@@ -244,7 +269,7 @@ export const api = {
   checkout,
   payOrder, payByCard, processPayment,
   myOrders, getOrders, getOrder, cancelOrder,
-  getInvoice,
+  getInvoice, downloadInvoicePDF,
 
   // Admin Produits
   adminListProducts,

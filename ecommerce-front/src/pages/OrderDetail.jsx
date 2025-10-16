@@ -303,20 +303,27 @@ export default function OrderDetail() {
           {/* Actions */}
           <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
             {invoice && (
-              <Link
-                to={`/orders/${order.id}/invoice`}
+              <button
+                onClick={async () => {
+                  try {
+                    await api.downloadInvoicePDF(order.id);
+                  } catch (err) {
+                    alert("Erreur lors du téléchargement : " + (err.message || "Erreur inconnue"));
+                  }
+                }}
                 style={{
                   padding: "12px 16px",
                   backgroundColor: "#dbeafe",
                   color: "#1d4ed8",
-                  textDecoration: "none",
+                  border: "none",
                   borderRadius: 8,
                   textAlign: "center",
-                  fontWeight: 600
+                  fontWeight: 600,
+                  cursor: "pointer"
                 }}
               >
-                📄 Télécharger la facture
-              </Link>
+                📄 Télécharger la facture PDF
+              </button>
             )}
 
             {(order.status === "CREE" || order.status === "PAYEE") && order.status !== "EXPEDIEE" && (

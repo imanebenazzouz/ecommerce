@@ -1,9 +1,19 @@
 # api.py
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 import uuid
+import io
+import time
+from datetime import datetime
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 # Import du moteur métier
 from backend_demo import (
@@ -84,6 +94,142 @@ def require_admin(u = Depends(current_user)):
         raise HTTPException(403, "Accès réservé aux administrateurs")
     return u
 
+# ------------------------------- PDF Generation --------------------------------
+def generate_invoice_pdf(invoice_data, order_data, user_data, payment_data=None, delivery_data=None):
+    """Génère un PDF de facture"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#1f2937')
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=12,
+        textColor=colors.HexColor('#374151')
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    )
+    
+    # Contenu du PDF
+    story = []
+    
+    # En-tête
+    story.append(Paragraph("FACTURE", title_style))
+    story.append(Spacer(1, 20))
+    
+    # Informations de la facture
+    invoice_date = datetime.fromtimestamp(invoice_data['issued_at']).strftime("%d/%m/%Y %H:%M")
+    story.append(Paragraph(f"<b>Numéro de facture:</b> {invoice_data['number']}", normal_style))
+    story.append(Paragraph(f"<b>Date d'émission:</b> {invoice_date}", normal_style))
+    story.append(Paragraph(f"<b>Commande:</b> #{order_data['id'][:8]}", normal_style))
+    story.append(Spacer(1, 20))
+    
+    # Informations client
+    story.append(Paragraph("FACTURÉ À:", heading_style))
+    story.append(Paragraph(f"{user_data['first_name']} {user_data['last_name']}", normal_style))
+    story.append(Paragraph(user_data['address'], normal_style))
+    story.append(Spacer(1, 20))
+    
+    # Tableau des articles
+    story.append(Paragraph("DÉTAIL DES ARTICLES", heading_style))
+    
+    # En-tête du tableau
+    table_data = [['ID Produit', 'Nom', 'Prix unitaire', 'Quantité', 'Total']]
+    
+    # Lignes des articles
+    total_cents = 0
+    for line in invoice_data['lines']:
+        unit_price = line['unit_price_cents'] / 100
+        quantity = line['quantity']
+        line_total = (line['unit_price_cents'] * quantity) / 100
+        total_cents += line['unit_price_cents'] * quantity
+        
+        table_data.append([
+            line['product_id'][:8],
+            line['name'],
+            f"{unit_price:.2f} €",
+            str(quantity),
+            f"{line_total:.2f} €"
+        ])
+    
+    # Créer le tableau
+    table = Table(table_data, colWidths=[1.2*inch, 2.5*inch, 1*inch, 0.8*inch, 1*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f3f4f6')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 20))
+    
+    # Total
+    total_euros = total_cents / 100
+    story.append(Paragraph(f"<b>TOTAL: {total_euros:.2f} €</b>", ParagraphStyle(
+        'TotalStyle',
+        parent=styles['Normal'],
+        fontSize=14,
+        alignment=TA_RIGHT,
+        textColor=colors.HexColor('#1f2937')
+    )))
+    story.append(Spacer(1, 30))
+    
+    # Informations de paiement
+    if payment_data:
+        story.append(Paragraph("INFORMATIONS DE PAIEMENT", heading_style))
+        story.append(Paragraph(f"<b>Montant payé:</b> {payment_data['amount_cents'] / 100:.2f} €", normal_style))
+        story.append(Paragraph(f"<b>Statut:</b> {'PAYÉ' if payment_data['status'] == 'PAID' else 'ÉCHEC'}", normal_style))
+        story.append(Paragraph(f"<b>Date de paiement:</b> {datetime.fromtimestamp(payment_data['created_at']).strftime('%d/%m/%Y %H:%M')}", normal_style))
+        story.append(Spacer(1, 20))
+    
+    # Informations de livraison
+    if delivery_data:
+        story.append(Paragraph("INFORMATIONS DE LIVRAISON", heading_style))
+        story.append(Paragraph(f"<b>Transporteur:</b> {delivery_data['transporteur']}", normal_style))
+        if delivery_data.get('tracking_number'):
+            story.append(Paragraph(f"<b>Numéro de suivi:</b> {delivery_data['tracking_number']}", normal_style))
+        story.append(Paragraph(f"<b>Statut:</b> {delivery_data['delivery_status']}", normal_style))
+        story.append(Spacer(1, 20))
+    
+    # Pied de page
+    story.append(Spacer(1, 30))
+    story.append(Paragraph("Merci pour votre achat !", ParagraphStyle(
+        'FooterStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#6b7280')
+    )))
+    
+    # Construire le PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
 
 # ------------------------------- Schemas --------------------------------
 class RegisterIn(BaseModel):
@@ -160,6 +306,13 @@ class OrderItemOut(BaseModel):
     unit_price_cents: int
     quantity: int
 
+class InvoiceLineOut(BaseModel):
+    product_id: str
+    name: str
+    unit_price_cents: int
+    quantity: int
+    line_total_cents: int
+
 # ---- Schémas pour le suivi de livraison ----
 class DeliveryOut(BaseModel):
     transporteur: str
@@ -208,7 +361,7 @@ class InvoiceOut(BaseModel):
     id: str
     order_id: str
     number: str
-    lines: List[OrderItemOut]
+    lines: List[InvoiceLineOut]
     total_cents: int
     issued_at: float
 
@@ -415,10 +568,131 @@ def get_invoice(order_id: str, uid: str = Depends(current_user_id)):
         id=invoice.id,
         order_id=invoice.order_id,
         number=invoice.id,  # Simple: utiliser l'ID comme numéro
-        lines=[OrderItemOut(**i.__dict__) for i in invoice.lines],
+        lines=[InvoiceLineOut(**i.__dict__) for i in invoice.lines],
         total_cents=invoice.total_cents,
         issued_at=invoice.issued_at
     )
+
+@app.get("/orders/{order_id}/invoice/download")
+def download_invoice_pdf(order_id: str, uid: str = Depends(current_user_id)):
+    """Télécharge la facture en PDF"""
+    try:
+        # Récupérer la commande
+        order = orders.get(order_id)
+        if not order or order.user_id != uid:
+            raise HTTPException(404, "Commande introuvable")
+        
+        if not order.invoice_id:
+            raise HTTPException(404, "Facture non trouvée")
+        
+        # Récupérer la facture
+        invoice = invoices.get(order.invoice_id)
+        if not invoice:
+            raise HTTPException(404, "Facture introuvable")
+        
+        # Récupérer l'utilisateur
+        user = users.get(uid)
+        if not user:
+            raise HTTPException(404, "Utilisateur introuvable")
+    
+        # Récupérer les données de paiement
+        payment_data = None
+        if order.payment_id:
+            payment = payments.get(order.payment_id)
+            if payment:
+                payment_data = {
+                    'amount_cents': payment.amount_cents,
+                    'status': 'PAID' if payment.succeeded else 'FAILED',
+                    'created_at': payment.created_at
+                }
+        
+        # Récupérer les données de livraison
+        delivery_data = None
+        if order.delivery:
+            delivery_data = {
+                'transporteur': order.delivery.transporteur,
+                'tracking_number': order.delivery.tracking_number,
+                'delivery_status': order.delivery.delivery_status.value
+            }
+        
+        # Préparer les données pour le PDF
+        invoice_data = {
+            'id': invoice.id,
+            'number': invoice.id[:8],
+            'issued_at': invoice.issued_at,
+            'lines': [
+                {
+                    'product_id': line.product_id,
+                    'name': line.name,
+                    'unit_price_cents': line.unit_price_cents,
+                    'quantity': line.quantity,
+                    'line_total_cents': line.line_total_cents
+                }
+                for line in invoice.lines
+            ]
+        }
+        
+        order_data = {
+            'id': order.id,
+            'total_cents': order.total_cents()
+        }
+        
+        user_data = {
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'address': user.address
+        }
+        
+        # Générer le PDF
+        pdf_buffer = generate_invoice_pdf(invoice_data, order_data, user_data, payment_data, delivery_data)
+        
+        # Retourner le fichier PDF
+        filename = f"facture_{order_id[:8]}.pdf"
+        return Response(
+            content=pdf_buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    
+    except Exception as e:
+        print(f"Erreur dans download_invoice_pdf: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Erreur génération PDF: {str(e)}")
+
+@app.get("/test-pdf")
+def test_pdf_generation():
+    """Endpoint de test pour la génération PDF"""
+    try:
+        # Test simple avec reportlab directement
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        
+        styles = getSampleStyleSheet()
+        story = []
+        
+        # Ajouter un paragraphe simple
+        story.append(Paragraph("Test PDF", styles['Title']))
+        story.append(Spacer(1, 20))
+        story.append(Paragraph("Ceci est un test de génération PDF.", styles['Normal']))
+        
+        # Construire le PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Retourner le fichier PDF
+        filename = "test_facture.pdf"
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    
+    except Exception as e:
+        print(f"Erreur dans test_pdf_generation: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Erreur génération PDF: {str(e)}")
 
 @app.get("/orders/{order_id}/tracking", response_model=DeliveryOut)
 def get_order_tracking(order_id: str, uid: str = Depends(current_user_id)):
