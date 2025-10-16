@@ -18,6 +18,11 @@ class OrderStatus(Enum):
     ANNULEE = auto()
     REMBOURSEE = auto()
 
+class DeliveryStatus(Enum):
+    PREPAREE = "PRÉPARÉE"
+    EN_COURS = "EN_COURS"
+    LIVREE = "LIVRÉE"
+
 @dataclass
 class User:
     id: str
@@ -113,15 +118,17 @@ class Payment:
     provider_ref: str | None
     succeeded: bool
     created_at: float
+    idempotency_key: str | None = None
+    card_last4: str | None = None
 
 @dataclass
 class Delivery:
     id: str
     order_id: str
-    carrier: str
+    transporteur: str  # ex: "Colissimo", "Chronopost", "UPS"
     tracking_number: Optional[str]
     address: str
-    status: str  # ex: "PREPAREE", "EN_COURS", "LIVREE"
+    delivery_status: DeliveryStatus
 
 @dataclass
 class MessageThread:
@@ -253,12 +260,18 @@ class InvoiceRepository:
 class PaymentRepository:
     def __init__(self):
         self._by_id: Dict[str, Payment] = {}
+        self._by_idempotency: Dict[str, Payment] = {}  # idempotency_key -> Payment
 
     def add(self, payment: Payment):
         self._by_id[payment.id] = payment
+        if payment.idempotency_key:
+            self._by_idempotency[payment.idempotency_key] = payment
 
     def get(self, payment_id: str) -> Optional[Payment]:
         return self._by_id.get(payment_id)
+    
+    def get_by_idempotency_key(self, idempotency_key: str) -> Optional[Payment]:
+        return self._by_idempotency.get(idempotency_key)
 
 class ThreadRepository:
     def __init__(self):
@@ -361,10 +374,9 @@ class CartService:
 
 class PaymentGateway:
     """Simulation d'un prestataire CB (à remplacer par Stripe/Adyen/etc.)."""
-    def charge_card(self, card_number: str, exp_month: int, exp_year: int, cvc: str,
-                    amount_cents: int, idempotency_key: str) -> Dict:
+    def charge_card(self, card_last4: str, amount_cents: int, idempotency_key: str) -> Dict:
         # MOCK: succès si carte ne finit pas par '0000'
-        ok = not card_number.endswith("0000")
+        ok = card_last4 != "0000"
         return {
             "success": ok,
             "transaction_id": str(uuid.uuid4()) if ok else None,
@@ -404,24 +416,24 @@ class BillingService:
         return inv
 
 class DeliveryService:
-    def prepare_delivery(self, order: Order, address: str, carrier: str = "POSTE") -> Delivery:
+    def prepare_delivery(self, order: Order, address: str, transporteur: str = "Colissimo") -> Delivery:
         delivery = Delivery(
             id=str(uuid.uuid4()),
             order_id=order.id,
-            carrier=carrier,
+            transporteur=transporteur,
             tracking_number=None,
             address=address,
-            status="PREPAREE"
+            delivery_status=DeliveryStatus.PREPAREE
         )
         return delivery
 
     def ship(self, delivery: Delivery) -> Delivery:
-        delivery.status = "EN_COURS"
+        delivery.delivery_status = DeliveryStatus.EN_COURS
         delivery.tracking_number = delivery.tracking_number or f"TRK-{uuid.uuid4().hex[:10].upper()}"
         return delivery
 
     def mark_delivered(self, delivery: Delivery) -> Delivery:
-        delivery.status = "LIVREE"
+        delivery.delivery_status = DeliveryStatus.LIVREE
         return delivery
 
 class OrderService:
@@ -480,15 +492,28 @@ class OrderService:
         return order
 
     def pay_by_card(self, order_id: str, card_number: str, exp_month: int, exp_year: int, cvc: str) -> Payment:
+        """Méthode legacy pour compatibilité"""
+        card_last4 = card_number[-4:] if len(card_number) >= 4 else card_number
+        idempotency_key = f"{order_id}_{int(time.time())}"
+        return self.process_payment(order_id, card_last4, idempotency_key)
+
+    def process_payment(self, order_id: str, card_last4: str, idempotency_key: str) -> Payment:
+        """Nouvelle méthode avec idempotence"""
         order = self.orders.get(order_id)
         if not order:
             raise ValueError("Commande introuvable.")
+        
+        # Vérifier l'idempotence
+        existing_payment = self.payments.get_by_idempotency_key(idempotency_key)
+        if existing_payment:
+            return existing_payment
+        
         if order.status not in {OrderStatus.CREE, OrderStatus.VALIDEE}:
             raise ValueError("Statut de commande incompatible avec le paiement.")
+        
         amount = order.total_cents()
-        res = self.gateway.charge_card(
-            card_number, exp_month, exp_year, cvc, amount, idempotency_key=order.id
-        )
+        res = self.gateway.charge_card(card_last4, amount, idempotency_key)
+        
         payment = Payment(
             id=str(uuid.uuid4()),
             order_id=order.id,
@@ -497,18 +522,26 @@ class OrderService:
             provider="CB",
             provider_ref=res.get("transaction_id"),
             succeeded=res["success"],
-            created_at=time.time()
+            created_at=time.time(),
+            idempotency_key=idempotency_key,
+            card_last4=card_last4
         )
+        
         self.payments.add(payment)
-        if not payment.succeeded:
-            raise ValueError("Paiement refusé.")
-        order.payment_id = payment.id
-        order.status = OrderStatus.PAYEE
-        order.paid_at = time.time()
-        # Facture
-        inv = self.billing.issue_invoice(order)
-        order.invoice_id = inv.id
-        self.orders.update(order)
+        
+        if payment.succeeded:
+            order.payment_id = payment.id
+            order.status = OrderStatus.PAYEE
+            order.paid_at = time.time()
+            # Facture
+            inv = self.billing.issue_invoice(order)
+            order.invoice_id = inv.id
+            self.orders.update(order)
+        else:
+            # En cas d'échec, on garde la commande en CREATED
+            # Le stock reste réservé (sera libéré par expiration ou annulation)
+            pass
+        
         return payment
 
     def view_orders(self, user_id: str) -> List[Order]:
@@ -534,10 +567,19 @@ class OrderService:
         if not admin or not admin.is_admin:
             raise PermissionError("Droits insuffisants.")
         order = self.orders.get(order_id)
-        if not order or order.status != OrderStatus.CREE:
-            raise ValueError("Commande introuvable ou mauvais statut.")
+        if not order or order.status != OrderStatus.PAYEE:
+            raise ValueError("La commande doit être payée pour être validée.")
         order.status = OrderStatus.VALIDEE
         order.validated_at = time.time()
+        
+        # Créer automatiquement les informations de livraison avec statut "PRÉPARÉE"
+        if not order.delivery:
+            order.delivery = self.delivery_svc.prepare_delivery(
+                order, 
+                address=self.users.get(order.user_id).address,
+                transporteur="Colissimo"  # Transporteur par défaut
+            )
+        
         self.orders.update(order)
         return order
 
@@ -546,8 +588,8 @@ class OrderService:
         if not admin or not admin.is_admin:
             raise PermissionError("Droits insuffisants.")
         order = self.orders.get(order_id)
-        if not order or order.status != OrderStatus.PAYEE:
-            raise ValueError("La commande doit être payée pour être expédiée.")
+        if not order or order.status != OrderStatus.VALIDEE:
+            raise ValueError("La commande doit être validée pour être expédiée.")
         delivery = self.delivery_svc.prepare_delivery(order, address=self.users.get(order.user_id).address)
         delivery = self.delivery_svc.ship(delivery)
         order.delivery = delivery

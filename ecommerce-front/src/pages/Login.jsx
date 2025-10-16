@@ -1,8 +1,13 @@
 // src/pages/Login.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Login() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [error, setError] = useState("");
@@ -46,15 +51,18 @@ export default function Login() {
       // ✅ Connexion + récupération du rôle
       const { token, user } = await api.login({ email, password: pwd });
 
-      // Sauvegarde token + rôle
-      localStorage.setItem("token", token);
+      // Utiliser le contexte d'authentification
+      await login(user, token);
+      
+      // Sauvegarde du rôle
       localStorage.setItem("role", user?.is_admin ? "admin" : "user");
 
       // Synchroniser le panier local avec le serveur
       await syncLocalCartToServer();
 
-      // ✅ Redirection vers la page d'accueil
-      location.href = "/";
+      // ✅ Redirection vers la page demandée ou l'accueil
+      const nextUrl = searchParams.get('next') || "/";
+      navigate(nextUrl);
     } catch (err) {
       console.error("Erreur login:", err);
       let errorMessage = "Erreur de connexion, veuillez réessayer.";

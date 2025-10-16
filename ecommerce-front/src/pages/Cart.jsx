@@ -1,16 +1,20 @@
 // src/pages/Cart.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
+import PaymentModal from "../components/PaymentModal";
 
 export default function Cart() {
   const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [cart, setCart] = useState(null);
   const [products, setProducts] = useState([]);
   const [orderId, setOrderId] = useState(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [pending, setPending] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -185,36 +189,39 @@ export default function Cart() {
     
     // Vérification d'authentification avant le paiement
     if (!isAuthenticated()) {
-      setErr("Vous devez être connecté pour passer commande. Veuillez vous connecter ou créer un compte.");
+      // Redirection vers login avec paramètre de retour
+      navigate("/login?next=/cart");
       return;
     }
 
+    setPending(true);
     try {
       const res = await api.checkout();
       setOrderId(res.order_id);
-      setMsg("Commande créée. Renseigne ta carte pour payer ⬇️");
+      setShowPaymentModal(true);
+      setMsg("Commande créée avec succès !");
     } catch (e) {
       setErr(e.message);
+    } finally {
+      setPending(false);
     }
   }
 
-  async function pay(e) {
-    e.preventDefault();
-    setErr(""); setMsg("");
-    const form = new FormData(e.currentTarget);
-    const payload = {
-      card_number: form.get("card_number"),
-      exp_month: Number(form.get("exp_month")),
-      exp_year: Number(form.get("exp_year")),
-      cvc: form.get("cvc"),
-    };
-    try {
-      await api.payByCard(orderId, payload); // alias vers payOrder dans ton api.js
-      setMsg("✅ Paiement OK !");
-    } catch (e) {
-      setErr(e.message);
-    }
-  }
+  const handlePaymentSuccess = (paymentResult) => {
+    setShowPaymentModal(false);
+    setMsg("✅ Paiement réussi ! Redirection vers vos commandes...");
+    
+    // Redirection vers les commandes après un délai
+    setTimeout(() => {
+      navigate("/orders");
+    }, 2000);
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentModal(false);
+    setOrderId(null);
+    setMsg("Paiement annulé. Votre commande reste en attente.");
+  };
 
   if (!cart && !err) return <p style={{ padding: 40 }}>Chargement…</p>;
 
@@ -315,77 +322,68 @@ export default function Cart() {
             </button>
           </div>
 
-          {!orderId ? (
-            <div style={{ marginTop: 12 }}>
-              {isAuthenticated() ? (
+          <div style={{ marginTop: 12 }}>
+            {isAuthenticated() ? (
+              <button
+                onClick={checkout}
+                disabled={pending}
+                style={{ ...btnPrimary }}
+              >
+                {pending ? "Création de la commande..." : "Passer au paiement"}
+              </button>
+            ) : (
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 <button
                   onClick={checkout}
                   disabled={pending}
-                  style={{ ...btnPrimary }}
+                  style={{ 
+                    ...btnPrimary, 
+                    backgroundColor: "#dc2626",
+                    opacity: 0.8
+                  }}
+                  title="Vous devez être connecté pour passer commande"
                 >
-                  Passer au paiement
+                  🔒 Connexion requise pour le paiement
                 </button>
-              ) : (
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <button
-                    onClick={checkout}
-                    disabled={pending}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a 
+                    href="/login" 
                     style={{ 
                       ...btnPrimary, 
-                      backgroundColor: "#dc2626",
-                      opacity: 0.8
+                      backgroundColor: "#059669",
+                      textDecoration: "none",
+                      display: "inline-block"
                     }}
-                    title="Vous devez être connecté pour passer commande"
                   >
-                    🔒 Connexion requise pour le paiement
-                  </button>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <a 
-                      href="/login" 
-                      style={{ 
-                        ...btnPrimary, 
-                        backgroundColor: "#059669",
-                        textDecoration: "none",
-                        display: "inline-block"
-                      }}
-                    >
-                      Se connecter
-                    </a>
-                    <a 
-                      href="/register" 
-                      style={{ 
-                        ...btnPrimary, 
-                        backgroundColor: "#7c3aed",
-                        textDecoration: "none",
-                        display: "inline-block"
-                      }}
-                    >
-                      Créer un compte
-                    </a>
-                  </div>
+                    Se connecter
+                  </a>
+                  <a 
+                    href="/register" 
+                    style={{ 
+                      ...btnPrimary, 
+                      backgroundColor: "#7c3aed",
+                      textDecoration: "none",
+                      display: "inline-block"
+                    }}
+                  >
+                    Créer un compte
+                  </a>
                 </div>
-              )}
-            </div>
-          ) : (
-            <form onSubmit={pay} style={{ marginTop: 16, maxWidth: 360 }}>
-              <h3>Paiement par carte</h3>
-              <input
-                name="card_number"
-                placeholder="4242424242424242"
-                required
-                style={{ display: "block", width: "100%", padding: 8, marginBottom: 8 }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                <input name="exp_month" type="number" placeholder="MM" required style={{ padding: 8 }} />
-                <input name="exp_year" type="number" placeholder="YYYY" required style={{ padding: 8 }} />
-                <input name="cvc" placeholder="123" required style={{ padding: 8 }} />
               </div>
-              <button type="submit" disabled={pending} style={{ ...btnPrimary, marginTop: 10 }}>
-                Payer
-              </button>
-            </form>
-          )}
+            )}
+          </div>
         </>
+      )}
+
+      {/* Modal de paiement */}
+      {orderId && (
+        <PaymentModal
+          orderId={orderId}
+          amountCents={totalCents}
+          onSuccess={handlePaymentSuccess}
+          onCancel={handlePaymentCancel}
+          isOpen={showPaymentModal}
+        />
       )}
     </div>
   );

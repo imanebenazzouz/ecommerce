@@ -146,6 +146,29 @@ async function myOrders() {
 // alias compat
 const getOrders = myOrders;
 
+// GET /orders/:id
+async function getOrder(orderId) {
+  return request(`/orders/${orderId}`);
+}
+
+// POST /orders/:id/cancel
+async function cancelOrder(orderId) {
+  return request(`/orders/${orderId}/cancel`, { method: "POST" });
+}
+
+// GET /orders/:id/invoice
+async function getInvoice(orderId) {
+  return request(`/orders/${orderId}/invoice`);
+}
+
+// POST /payments (nouveau système avec idempotence)
+async function processPayment({ orderId, cardLast4, idempotencyKey }) {
+  return request("/payments", {
+    method: "POST",
+    body: JSON.stringify({ order_id: orderId, card_last4: cardLast4, idempotency_key: idempotencyKey }),
+  });
+}
+
 /* =========================
    ADMIN — Produits
    ========================= */
@@ -180,6 +203,11 @@ async function adminListOrders(params = {}) {
   return request(`/admin/orders${qs ? `?${qs}` : ""}`);
 }
 
+// GET /admin/orders/:id
+async function adminGetOrder(orderId) {
+  return request(`/admin/orders/${orderId}`);
+}
+
 // POST /admin/orders/:id/validate
 async function adminValidateOrder(order_id) {
   return request(`/admin/orders/${order_id}/validate`, { method: "POST" });
@@ -209,8 +237,9 @@ export const api = {
   viewCart, getCart,
   addToCart, removeFromCart,
   checkout,
-  payOrder, payByCard,
-  myOrders, getOrders,
+  payOrder, payByCard, processPayment,
+  myOrders, getOrders, getOrder, cancelOrder,
+  getInvoice,
 
   // Admin Produits
   adminListProducts,
@@ -220,6 +249,7 @@ export const api = {
 
   // Admin Commandes
   adminListOrders,
+  adminGetOrder,
   adminValidateOrder,
   adminShipOrder,
   adminMarkDelivered,

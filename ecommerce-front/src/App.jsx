@@ -1,42 +1,41 @@
 // src/App.jsx
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
-import Profile from "./pages/Profile"; // ✅ AJOUT
+import Profile from "./pages/Profile";
+import Orders from "./pages/Orders";
+import OrderDetail from "./pages/OrderDetail";
+import AdminOrderDetail from "./pages/AdminOrderDetail";
 import "./styles/global.css";
 
 function AppContent() {
-  // États locaux pour l'authentification et le rôle
-  const [isAuth, setIsAuth] = useState(() => !!localStorage.getItem("token"));
+  const { user, logout, isAuthenticated } = useAuth();
   const [role, setRole] = useState(() => localStorage.getItem("role"));
 
-  // Synchronise token + rôle entre les onglets ou après un refresh
+  // Synchronise le rôle quand l'utilisateur change
   useEffect(() => {
-    const sync = () => {
-      setIsAuth(!!localStorage.getItem("token"));
-      setRole(localStorage.getItem("role"));
-    };
-    window.addEventListener("storage", sync);
-    window.addEventListener("focus", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("focus", sync);
-    };
-  }, []);
+    if (user) {
+      const userRole = user.is_admin ? "admin" : "user";
+      localStorage.setItem("role", userRole);
+      setRole(userRole);
+    } else {
+      localStorage.removeItem("role");
+      setRole(null);
+    }
+  }, [user]);
 
   // Déconnexion
   function handleLogout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("role");
-    setIsAuth(false);
-    setRole(null);
+    logout();
     window.location.assign("/"); // redirection simple
   }
+
+  const isAuth = isAuthenticated();
 
   return (
     <div style={{ padding: 40, fontFamily: "Arial, sans-serif" }}>
@@ -69,6 +68,7 @@ function AppContent() {
         {/* ✅ Si connecté → affichage rôle + bouton Déconnexion */}
         {isAuth && (
           <>
+            <Link to="/orders">Mes commandes</Link>
             <span style={{ color: "#555" }}>
               Connecté ({role === "admin" ? "admin" : "client"})
             </span>
@@ -97,11 +97,15 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* ✅ Route Profil */}
+        {/* ✅ Routes utilisateur connecté */}
         <Route path="/profile" element={<Profile />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/orders/:orderId" element={<OrderDetail />} />
+        <Route path="/orders/:orderId/invoice" element={<OrderDetail />} />
 
         {/* ✅ Route Admin (protégée visuellement par le menu) */}
         <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/orders/:orderId" element={<AdminOrderDetail />} />
       </Routes>
     </div>
   );

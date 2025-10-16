@@ -17,6 +17,12 @@ export default function Admin() {
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
 
+  // État pour les commandes clients
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [showOrders, setShowOrders] = useState(false);
+
   // Formulaire de création
   const [form, setForm] = useState({
     name: "",
@@ -53,6 +59,38 @@ export default function Admin() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Fonction pour charger les commandes
+  async function loadOrders(userId = null) {
+    setOrdersLoading(true);
+    setErr("");
+    try {
+      const params = userId ? { user_id: userId } : {};
+      const data = await api.adminListOrders(params);
+      setOrders(data);
+    } catch (e) {
+      setErr(e.message || "Impossible de charger les commandes.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  }
+
+  // Fonction pour afficher les commandes d'un client spécifique
+  async function handleViewClientOrders() {
+    if (!selectedUserId.trim()) {
+      setErr("Veuillez saisir un ID utilisateur.");
+      return;
+    }
+    setShowOrders(true);
+    await loadOrders(selectedUserId);
+  }
+
+  // Fonction pour afficher toutes les commandes
+  async function handleViewAllOrders() {
+    setShowOrders(true);
+    setSelectedUserId("");
+    await loadOrders();
+  }
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -297,6 +335,166 @@ export default function Admin() {
                 </div>
               </article>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* Section Commandes Clients */}
+      <section style={{
+        border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginTop: 20,
+        background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.04)"
+      }}>
+        <h3 style={{ marginTop: 0, marginBottom: 16 }}>📦 Commandes Clients</h3>
+        
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder="ID utilisateur (optionnel)"
+            value={selectedUserId}
+            onChange={(e) => setSelectedUserId(e.target.value)}
+            style={{ ...fieldStyle, width: 200, padding: "8px 12px" }}
+          />
+          <button 
+            onClick={handleViewClientOrders}
+            style={primaryBtn}
+            disabled={ordersLoading}
+          >
+            Voir commandes client
+          </button>
+          <button 
+            onClick={handleViewAllOrders}
+            style={secondaryBtn}
+            disabled={ordersLoading}
+          >
+            Voir toutes les commandes
+          </button>
+        </div>
+
+        {showOrders && (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <h4 style={{ margin: 0 }}>
+                {selectedUserId ? `Commandes du client ${selectedUserId}` : "Toutes les commandes"} ({orders.length})
+              </h4>
+              <button onClick={() => setShowOrders(false)} style={secondaryBtn}>
+                Masquer
+              </button>
+            </div>
+
+            {ordersLoading ? (
+              <p style={{ color: "#64748b" }}>Chargement des commandes…</p>
+            ) : orders.length === 0 ? (
+              <div style={{
+                padding: 24, textAlign: "center", border: "1px solid #e5e7eb",
+                borderRadius: 12, background: "#f8fafc"
+              }}>
+                Aucune commande trouvée.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {orders.map(order => (
+                  <div key={order.id} style={{
+                    border: "1px solid #e5e7eb", borderRadius: 8, padding: 12,
+                    background: "#f8fafc"
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                      <div>
+                        <strong>Commande #{order.id.slice(0, 8)}</strong>
+                        <div style={{ fontSize: 14, color: "#64748b" }}>
+                          Client: {order.user_id.slice(0, 8)}...
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700, color: "#2563eb" }}>
+                          {fmt.format(order.total_cents / 100)}
+                        </div>
+                        <div style={{ 
+                          fontSize: 12, 
+                          padding: "2px 6px", 
+                          borderRadius: 4,
+                          background: order.status === "PAYEE" ? "#dcfce7" : 
+                                     order.status === "EXPEDIEE" ? "#dbeafe" :
+                                     order.status === "LIVREE" ? "#f0f9ff" : "#fef3c7",
+                          color: order.status === "PAYEE" ? "#166534" :
+                                 order.status === "EXPEDIEE" ? "#1e40af" :
+                                 order.status === "LIVREE" ? "#0c4a6e" : "#92400e"
+                        }}>
+                          {order.status}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ fontSize: 14, color: "#64748b", marginBottom: 8 }}>
+                      {order.items.length} article(s) : {order.items.map(item => `${item.name} (x${item.quantity})`).join(", ")}
+                    </div>
+
+                    {order.delivery && (
+                      <div style={{ fontSize: 14, color: "#64748b", marginBottom: 8 }}>
+                        📦 Livraison: {order.delivery.transporteur} - {order.delivery.delivery_status}
+                        {order.delivery.tracking_number && ` (${order.delivery.tracking_number})`}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button 
+                        onClick={() => navigate(`/admin/orders/${order.id}`)}
+                        style={{ ...secondaryBtn, fontSize: 12, padding: "4px 8px" }}
+                      >
+                        Voir détails
+                      </button>
+                      {order.status === "PAYEE" && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.adminValidateOrder(order.id);
+                              setMsg(`✅ Commande ${order.id.slice(0, 8)} validée`);
+                              await loadOrders(selectedUserId || null);
+                            } catch (e) {
+                              setErr(e.message);
+                            }
+                          }}
+                          style={{ ...primaryBtn, fontSize: 12, padding: "4px 8px" }}
+                        >
+                          Valider
+                        </button>
+                      )}
+                      {order.status === "VALIDEE" && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.adminShipOrder(order.id);
+                              setMsg(`✅ Commande ${order.id.slice(0, 8)} expédiée`);
+                              await loadOrders(selectedUserId || null);
+                            } catch (e) {
+                              setErr(e.message);
+                            }
+                          }}
+                          style={{ ...primaryBtn, fontSize: 12, padding: "4px 8px" }}
+                        >
+                          Expédier
+                        </button>
+                      )}
+                      {order.status === "EXPEDIEE" && (
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.adminMarkDelivered(order.id);
+                              setMsg(`✅ Commande ${order.id.slice(0, 8)} marquée livrée`);
+                              await loadOrders(selectedUserId || null);
+                            } catch (e) {
+                              setErr(e.message);
+                            }
+                          }}
+                          style={{ ...primaryBtn, fontSize: 12, padding: "4px 8px" }}
+                        >
+                          Marquer livrée
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </section>

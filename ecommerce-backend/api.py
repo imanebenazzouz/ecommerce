@@ -10,7 +10,7 @@ from backend_demo import (
     UserRepository, ProductRepository, CartRepository, OrderRepository,
     InvoiceRepository, PaymentRepository, ThreadRepository, SessionManager,
     AuthService, CatalogService, CartService, BillingService, DeliveryService,
-    PaymentGateway, OrderService, Product, OrderStatus
+    PaymentGateway, OrderService, Product, OrderStatus, DeliveryStatus, Delivery
 )
 
 app = FastAPI(title="Ecommerce API (TP)")
@@ -149,11 +149,27 @@ class PayIn(BaseModel):
     exp_year: int
     cvc: str
 
+class PaymentIn(BaseModel):
+    order_id: str
+    card_last4: str
+    idempotency_key: str
+
 class OrderItemOut(BaseModel):
     product_id: str
     name: str
     unit_price_cents: int
     quantity: int
+
+# ---- Schémas pour le suivi de livraison ----
+class DeliveryOut(BaseModel):
+    transporteur: str
+    tracking_number: Optional[str]
+    delivery_status: str
+
+class DeliveryIn(BaseModel):
+    transporteur: str
+    tracking_number: Optional[str] = None
+    delivery_status: str
 
 class OrderOut(BaseModel):
     id: str
@@ -161,6 +177,7 @@ class OrderOut(BaseModel):
     items: List[OrderItemOut]
     status: str
     total_cents: int
+    delivery: Optional[DeliveryOut] = None
 
 # ---- Schemas Admin (CRUD produits + remboursement) ----
 class ProductCreateIn(BaseModel):
@@ -179,6 +196,21 @@ class ProductUpdateIn(BaseModel):
 
 class RefundIn(BaseModel):
     amount_cents: Optional[int] = Field(default=None, ge=0)
+
+class PaymentOut(BaseModel):
+    id: str
+    order_id: str
+    amount_cents: int
+    status: str
+    created_at: float
+
+class InvoiceOut(BaseModel):
+    id: str
+    order_id: str
+    number: str
+    lines: List[OrderItemOut]
+    total_cents: int
+    issued_at: float
 
 
 # ------------------------------- Routes --------------------------------
@@ -278,18 +310,130 @@ def pay(order_id: str, inp: PayIn, uid: str = Depends(current_user_id)):
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+@app.post("/payments", response_model=PaymentOut)
+def process_payment(inp: PaymentIn, uid: str = Depends(current_user_id)):
+    try:
+        # Vérifier que la commande appartient à l'utilisateur
+        order = order_svc.orders.get(inp.order_id)
+        if not order or order.user_id != uid:
+            raise HTTPException(404, "Commande introuvable")
+        
+        payment = order_svc.process_payment(inp.order_id, inp.card_last4, inp.idempotency_key)
+        return PaymentOut(
+            id=payment.id,
+            order_id=payment.order_id,
+            amount_cents=payment.amount_cents,
+            status="PAID" if payment.succeeded else "FAILED",
+            created_at=payment.created_at
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
 @app.get("/orders", response_model=list[OrderOut])
 def my_orders(uid: str = Depends(current_user_id)):
     out: list[OrderOut] = []
     for o in order_svc.view_orders(uid):
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
         out.append(OrderOut(
             id=o.id,
             user_id=o.user_id,
             items=[OrderItemOut(**i.__dict__) for i in o.items],
             status=o.status.name,
             total_cents=o.total_cents(),
+            delivery=delivery_info
         ))
     return out
+
+@app.get("/orders/{order_id}", response_model=OrderOut)
+def get_order(order_id: str, uid: str = Depends(current_user_id)):
+    order = order_svc.orders.get(order_id)
+    if not order or order.user_id != uid:
+        raise HTTPException(404, "Commande introuvable")
+    
+    delivery_info = None
+    if order.delivery:
+        delivery_info = DeliveryOut(
+            transporteur=order.delivery.transporteur,
+            tracking_number=order.delivery.tracking_number,
+            delivery_status=order.delivery.delivery_status.value
+        )
+    
+    return OrderOut(
+        id=order.id,
+        user_id=order.user_id,
+        items=[OrderItemOut(**i.__dict__) for i in order.items],
+        status=order.status.name,
+        total_cents=order.total_cents(),
+        delivery=delivery_info
+    )
+
+@app.post("/orders/{order_id}/cancel", response_model=OrderOut)
+def cancel_order(order_id: str, uid: str = Depends(current_user_id)):
+    try:
+        order = order_svc.request_cancellation(uid, order_id)
+        
+        delivery_info = None
+        if order.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=order.delivery.transporteur,
+                tracking_number=order.delivery.tracking_number,
+                delivery_status=order.delivery.delivery_status.value
+            )
+        
+        return OrderOut(
+            id=order.id,
+            user_id=order.user_id,
+            items=[OrderItemOut(**i.__dict__) for i in order.items],
+            status=order.status.name,
+            total_cents=order.total_cents(),
+            delivery=delivery_info
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+@app.get("/orders/{order_id}/invoice", response_model=InvoiceOut)
+def get_invoice(order_id: str, uid: str = Depends(current_user_id)):
+    order = order_svc.orders.get(order_id)
+    if not order or order.user_id != uid:
+        raise HTTPException(404, "Commande introuvable")
+    
+    if not order.invoice_id:
+        raise HTTPException(404, "Facture non trouvée")
+    
+    invoice = order_svc.invoices.get(order.invoice_id)
+    if not invoice:
+        raise HTTPException(404, "Facture introuvable")
+    
+    return InvoiceOut(
+        id=invoice.id,
+        order_id=invoice.order_id,
+        number=invoice.id,  # Simple: utiliser l'ID comme numéro
+        lines=[OrderItemOut(**i.__dict__) for i in invoice.lines],
+        total_cents=invoice.total_cents,
+        issued_at=invoice.issued_at
+    )
+
+@app.get("/orders/{order_id}/tracking", response_model=DeliveryOut)
+def get_order_tracking(order_id: str, uid: str = Depends(current_user_id)):
+    order = order_svc.orders.get(order_id)
+    if not order or order.user_id != uid:
+        raise HTTPException(404, "Commande introuvable")
+    
+    if not order.delivery:
+        raise HTTPException(404, "Informations de livraison non disponibles")
+    
+    return DeliveryOut(
+        transporteur=order.delivery.transporteur,
+        tracking_number=order.delivery.tracking_number,
+        delivery_status=order.delivery.delivery_status.value
+    )
 
 
 # ====================== ADMIN: Produits ======================
@@ -357,20 +501,68 @@ def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin))
         order_list = [o for o in order_list if o.user_id == user_id]
 
     for o in order_list:
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
         out.append(OrderOut(
             id=o.id,
             user_id=o.user_id,
             items=[OrderItemOut(**i.__dict__) for i in o.items],
             status=o.status.name,
             total_cents=o.total_cents(),
+            delivery=delivery_info
         ))
     return out
+
+@app.get("/admin/orders/{order_id}", response_model=OrderOut)
+def admin_get_order(order_id: str, u = Depends(require_admin)):
+    order = order_svc.orders.get(order_id)
+    if not order:
+        raise HTTPException(404, "Commande introuvable")
+    
+    delivery_info = None
+    if order.delivery:
+        delivery_info = DeliveryOut(
+            transporteur=order.delivery.transporteur,
+            tracking_number=order.delivery.tracking_number,
+            delivery_status=order.delivery.delivery_status.value
+        )
+    
+    return OrderOut(
+        id=order.id,
+        user_id=order.user_id,
+        items=[OrderItemOut(**i.__dict__) for i in order.items],
+        status=order.status.name,
+        total_cents=order.total_cents(),
+        delivery=delivery_info
+    )
 
 @app.post("/admin/orders/{order_id}/validate", response_model=OrderOut)
 def admin_validate_order(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_validate_order(u.id, order_id)
-        return OrderOut(**o.__dict__)
+        
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
+        return OrderOut(
+            id=o.id,
+            user_id=o.user_id,
+            items=[OrderItemOut(**i.__dict__) for i in o.items],
+            status=o.status.name,
+            total_cents=o.total_cents(),
+            delivery=delivery_info
+        )
     except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
@@ -378,7 +570,23 @@ def admin_validate_order(order_id: str, u = Depends(require_admin)):
 def admin_ship_order(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_ship_order(u.id, order_id)
-        return OrderOut(**o.__dict__)
+        
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
+        return OrderOut(
+            id=o.id,
+            user_id=o.user_id,
+            items=[OrderItemOut(**i.__dict__) for i in o.items],
+            status=o.status.name,
+            total_cents=o.total_cents(),
+            delivery=delivery_info
+        )
     except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
@@ -386,7 +594,23 @@ def admin_ship_order(order_id: str, u = Depends(require_admin)):
 def admin_mark_delivered(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_mark_delivered(u.id, order_id)
-        return OrderOut(**o.__dict__)
+        
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
+        return OrderOut(
+            id=o.id,
+            user_id=o.user_id,
+            items=[OrderItemOut(**i.__dict__) for i in o.items],
+            status=o.status.name,
+            total_cents=o.total_cents(),
+            delivery=delivery_info
+        )
     except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
@@ -394,6 +618,66 @@ def admin_mark_delivered(order_id: str, u = Depends(require_admin)):
 def admin_refund_order(order_id: str, inp: RefundIn, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_refund(u.id, order_id, amount_cents=inp.amount_cents)
-        return OrderOut(**o.__dict__)
+        
+        delivery_info = None
+        if o.delivery:
+            delivery_info = DeliveryOut(
+                transporteur=o.delivery.transporteur,
+                tracking_number=o.delivery.tracking_number,
+                delivery_status=o.delivery.delivery_status.value
+            )
+        
+        return OrderOut(
+            id=o.id,
+            user_id=o.user_id,
+            items=[OrderItemOut(**i.__dict__) for i in o.items],
+            status=o.status.name,
+            total_cents=o.total_cents(),
+            delivery=delivery_info
+        )
     except (PermissionError, ValueError) as e:
+        raise HTTPException(400, str(e))
+
+@app.post("/admin/orders/{order_id}/tracking", response_model=DeliveryOut)
+def admin_update_tracking(order_id: str, inp: DeliveryIn, u = Depends(require_admin)):
+    try:
+        # Vérifier que la commande existe
+        order = order_svc.orders.get(order_id)
+        if not order:
+            raise HTTPException(404, "Commande introuvable")
+        
+        # Valider le statut de livraison
+        try:
+            delivery_status = DeliveryStatus(inp.delivery_status)
+        except ValueError:
+            raise HTTPException(400, f"Statut de livraison invalide. Valeurs acceptées: {[s.value for s in DeliveryStatus]}")
+        
+        # Créer ou mettre à jour les informations de livraison
+        if order.delivery:
+            # Mettre à jour l'existant
+            order.delivery.transporteur = inp.transporteur
+            order.delivery.tracking_number = inp.tracking_number
+            order.delivery.delivery_status = delivery_status
+        else:
+            # Créer une nouvelle livraison
+            order.delivery = Delivery(
+                id=str(uuid.uuid4()),
+                order_id=order_id,
+                transporteur=inp.transporteur,
+                tracking_number=inp.tracking_number,
+                address=order_svc.users.get(order.user_id).address,  # Utiliser l'adresse de l'utilisateur
+                delivery_status=delivery_status
+            )
+        
+        # Sauvegarder la commande
+        order_svc.orders.update(order)
+        
+        return DeliveryOut(
+            transporteur=order.delivery.transporteur,
+            tracking_number=order.delivery.tracking_number,
+            delivery_status=order.delivery.delivery_status.value
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(400, str(e))

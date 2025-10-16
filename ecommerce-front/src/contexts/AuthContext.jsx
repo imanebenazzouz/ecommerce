@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { api } from '../lib/api';
 
 const AuthContext = createContext();
 
@@ -18,15 +19,31 @@ export function AuthProvider({ children }) {
     // Check if user is logged in on app start
     const token = localStorage.getItem("token");
     if (token) {
-      // In a real app, you'd decode the JWT or fetch user data
-      setUser({ email: "user@example.com", token }); // Placeholder
+      // Récupérer les vraies données utilisateur
+      api.me().then(userData => {
+        setUser({ ...userData, token });
+      }).catch(() => {
+        // Token invalide, nettoyer
+        localStorage.removeItem("token");
+        setUser(null);
+      }).finally(() => {
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  const login = (userData, token) => {
+  const login = async (userData, token) => {
     localStorage.setItem("token", token);
-    setUser({ ...userData, token });
+    // Récupérer les données utilisateur complètes
+    try {
+      const fullUserData = await api.me();
+      setUser({ ...fullUserData, token });
+    } catch (error) {
+      // Fallback sur les données fournies
+      setUser({ ...userData, token });
+    }
   };
 
   const logout = () => {
