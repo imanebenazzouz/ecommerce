@@ -479,28 +479,70 @@ class ThreadRepository:
 class PasswordHasher:
     @staticmethod
     def hash(password: str) -> str:
-        # Simple (à remplacer par bcrypt/argon2)
-        return f"sha256::{hashlib.sha256(password.encode()).hexdigest()}"
+        """Hash password using bcrypt with salt"""
+        import bcrypt
+        salt = bcrypt.gensalt(rounds=12)
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
     @staticmethod
     def verify(password: str, stored_hash: str) -> bool:
-        return PasswordHasher.hash(password) == stored_hash
+        """Verify password against stored hash"""
+        import bcrypt
+        try:
+            return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+        except Exception:
+            return False
 
 class SessionManager:
-    """Gestion simple de sessions en mémoire."""
-    def __init__(self):
-        self._sessions: Dict[str, str] = {}  # token -> user_id
+    """Gestion sécurisée des sessions avec JWT et expiration."""
+    def __init__(self, secret_key: str = None):
+        import os
+        self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+        self.session_duration = int(os.getenv("SESSION_DURATION", "3600"))  # 1 heure par défaut
+        self._blacklisted_tokens: set = set()  # Tokens révoqués
 
     def create_session(self, user_id: str) -> str:
-        token = str(uuid.uuid4())
-        self._sessions[token] = user_id
-        return token
+        """Créer une session JWT avec expiration"""
+        import jwt
+        from datetime import datetime, timedelta
+        
+        payload = {
+            'user_id': user_id,
+            'exp': datetime.utcnow() + timedelta(seconds=self.session_duration),
+            'iat': datetime.utcnow(),
+            'type': 'access_token'
+        }
+        return jwt.encode(payload, self.secret_key, algorithm='HS256')
 
     def destroy_session(self, token: str):
-        self._sessions.pop(token, None)
+        """Révoquer un token en l'ajoutant à la blacklist"""
+        self._blacklisted_tokens.add(token)
 
     def get_user_id(self, token: str) -> Optional[str]:
-        return self._sessions.get(token)
+        """Récupérer l'ID utilisateur depuis un token JWT"""
+        import jwt
+        from datetime import datetime
+        
+        try:
+            # Vérifier si le token est blacklisté
+            if token in self._blacklisted_tokens:
+                return None
+                
+            # Décoder le JWT
+            payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+            
+            # Vérifier l'expiration
+            if datetime.utcnow().timestamp() > payload.get('exp', 0):
+                return None
+                
+            return payload.get('user_id')
+            
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.InvalidTokenError:
+            return None
+        except Exception:
+            return None
 
 class AuthService:
     def __init__(self, users: UserRepository, sessions: SessionManager):

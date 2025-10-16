@@ -26,17 +26,33 @@ from backend_demo import (
 app = FastAPI(title="Ecommerce API (TP)")
 
 # -------------------------------- CORS --------------------------------
+import os
+
+# Configuration CORS sécurisée
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:3000",  # React dev server alternatif
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:5178",   # Port alternatif Vite
+]
+
+# Ajouter les origines de production si définies
+if os.getenv("PRODUCTION_ORIGINS"):
+    ALLOWED_ORIGINS.extend(os.getenv("PRODUCTION_ORIGINS").split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:3000",  # React dev server alternatif
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000"
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Méthodes spécifiques
+    allow_headers=[
+        "Authorization", 
+        "Content-Type", 
+        "Accept",
+        "Origin",
+        "X-Requested-With"
+    ],  # Headers spécifiques
 )
 
 # --------------------------- Initialisation mémoire ---------------------------
@@ -71,13 +87,26 @@ if not products.list_active():
 
 
 # ------------------------------- Helpers --------------------------------
+def validate_token_format(token: str) -> bool:
+    """Valider le format du token JWT"""
+    import re
+    # JWT format: header.payload.signature (3 parties séparées par des points)
+    jwt_pattern = r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
+    return bool(re.match(jwt_pattern, token))
+
 def current_user_id(authorization: Optional[str] = Header(default=None)) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Token manquant (Authorization: Bearer <token>)")
+    
     token = authorization.split(" ", 1)[1].strip()
+    
+    # Valider le format du token
+    if not validate_token_format(token):
+        raise HTTPException(401, "Format de token invalide")
+    
     uid = sessions.get_user_id(token)
     if not uid:
-        raise HTTPException(401, "Session invalide")
+        raise HTTPException(401, "Session invalide ou expirée")
     return uid
 
 # Renvoie l'objet utilisateur courant
@@ -380,7 +409,14 @@ def register(inp: RegisterIn):
         u = auth.register(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
         return UserOut(**u.__dict__)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        # Messages d'erreur sécurisés sans détails internes
+        error_message = str(e)
+        if "Email déjà utilisé" in error_message:
+            raise HTTPException(400, "Cette adresse email est déjà utilisée")
+        elif "Mot de passe" in error_message:
+            raise HTTPException(400, "Mot de passe invalide")
+        else:
+            raise HTTPException(400, "Erreur lors de l'inscription")
 
 @app.post("/auth/login", response_model=TokenOut)
 def login(inp: LoginIn):
@@ -388,7 +424,8 @@ def login(inp: LoginIn):
         token = auth.login(inp.email, inp.password)
         return TokenOut(token=token)
     except ValueError as e:
-        raise HTTPException(401, str(e))
+        # Ne pas révéler si l'email existe ou pas
+        raise HTTPException(401, "Identifiants invalides")
 
 @app.post("/auth/logout")
 def logout(uid: str = Depends(current_user_id), authorization: Optional[str] = Header(default=None)):
@@ -436,7 +473,16 @@ def add_to_cart(inp: CartAddIn, uid: str = Depends(current_user_id)):
         cart_svc.add_to_cart(uid, inp.product_id, inp.qty)
         return {"ok": True}
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        # Messages d'erreur sécurisés
+        error_message = str(e)
+        if "Produit introuvable" in error_message:
+            raise HTTPException(404, "Produit introuvable")
+        elif "Stock insuffisant" in error_message:
+            raise HTTPException(400, "Stock insuffisant")
+        elif "Produit inactif" in error_message:
+            raise HTTPException(400, "Produit non disponible")
+        else:
+            raise HTTPException(400, "Erreur lors de l'ajout au panier")
 
 @app.post("/cart/remove")
 def remove_from_cart(inp: CartRemoveIn, uid: str = Depends(current_user_id)):

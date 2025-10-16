@@ -4,3 +4,5 @@ pydantic[email]
 email-validator
 reportlab
 python-multipart
+bcrypt
+pyjwt
