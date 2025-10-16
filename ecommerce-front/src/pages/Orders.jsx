@@ -37,23 +37,40 @@ export default function Orders() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "CREE": return "#6b7280";
-      case "PAYEE": return "#059669";
-      case "EXPEDIEE": return "#2563eb";
-      case "LIVREE": return "#7c3aed";
-      case "ANNULEE": return "#dc2626";
+      case "CREE": return "#6b7280";      // Gris - En attente
+      case "VALIDEE": return "#f59e0b";   // Orange - Validée
+      case "PAYEE": return "#059669";     // Vert - Payée
+      case "EXPEDIEE": return "#2563eb";  // Bleu - Expédiée
+      case "LIVREE": return "#7c3aed";    // Violet - Livrée
+      case "ANNULEE": return "#dc2626";   // Rouge - Annulée
+      case "REMBOURSEE": return "#8b5cf6"; // Violet foncé - Remboursée
       default: return "#6b7280";
     }
   };
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case "CREE": return "En attente";
+      case "CREE": return "Créée";
+      case "VALIDEE": return "Validée";
       case "PAYEE": return "Payée";
       case "EXPEDIEE": return "Expédiée";
       case "LIVREE": return "Livrée";
       case "ANNULEE": return "Annulée";
+      case "REMBOURSEE": return "Remboursée";
       default: return status;
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "CREE": return "📋";
+      case "VALIDEE": return "✅";
+      case "PAYEE": return "💳";
+      case "EXPEDIEE": return "🚚";
+      case "LIVREE": return "📦";
+      case "ANNULEE": return "❌";
+      case "REMBOURSEE": return "💰";
+      default: return "📋";
     }
   };
 
@@ -170,14 +187,18 @@ export default function Orders() {
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div style={{
-                    padding: "4px 12px",
+                    padding: "6px 12px",
                     backgroundColor: getStatusColor(order.status) + "20",
                     color: getStatusColor(order.status),
                     borderRadius: 20,
                     fontSize: 12,
                     fontWeight: 600,
-                    display: "inline-block"
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    border: `1px solid ${getStatusColor(order.status)}30`
                   }}>
+                    <span>{getStatusIcon(order.status)}</span>
                     {getStatusLabel(order.status)}
                   </div>
                   <div style={{ marginTop: 8, fontSize: 18, fontWeight: 700 }}>

@@ -10,11 +10,11 @@
         "quantity": 1
       }
     ],
-    "status": "VALIDEE",
+    "status": "LIVREE",
     "created_at": 1760614077.456351,
     "validated_at": 1760614077.459436,
-    "shipped_at": null,
-    "delivered_at": null,
+    "shipped_at": 1760627436.530456,
+    "delivered_at": 1760627438.990466,
     "cancelled_at": null,
     "refunded_at": null,
     "payment_id": "021b375f-1c99-4861-ab1d-a304a39da70a",
@@ -23,9 +23,9 @@
       "id": "5b549b5f-c48b-408c-8774-7815800f842f",
       "order_id": "50b75855-690c-4a7d-95e1-718974dd64f1",
       "transporteur": "Colissimo",
-      "tracking_number": null,
+      "tracking_number": "TRK-28591DDA93",
       "address": "12 Rue des Fleurs",
-      "delivery_status": "PRÉPARÉE"
+      "delivery_status": "LIVRÉE"
     }
   },
   "71459990-885d-44ca-ad39-1624c7f76423": {
@@ -119,16 +119,23 @@
         "quantity": 1
       }
     ],
-    "status": "PAYEE",
+    "status": "LIVREE",
     "created_at": 1760624648.2386382,
-    "validated_at": null,
-    "shipped_at": null,
-    "delivered_at": null,
+    "validated_at": 1760627835.29456,
+    "shipped_at": 1760627981.522676,
+    "delivered_at": 1760628109.14003,
     "cancelled_at": null,
     "refunded_at": null,
     "payment_id": "941c6aef-a4f3-43cd-bd13-9e313b271edc",
     "invoice_id": "1368fa5c-2271-4e42-8dba-75b20beaeaad",
-    "delivery": null
+    "delivery": {
+      "id": "29119185-9a71-4f46-aaa4-24a24cee0450",
+      "order_id": "0bed4cc0-ed68-40ca-ac0e-b49e989641b9",
+      "transporteur": "Colissimo",
+      "tracking_number": "TRK-A5BE1E4A5F",
+      "address": "Unknown Address",
+      "delivery_status": "LIVRÉE"
+    }
   },
   "cf00f33c-0afe-4b07-a066-8c322db23ffc": {
     "id": "cf00f33c-0afe-4b07-a066-8c322db23ffc",
@@ -141,15 +148,143 @@
         "quantity": 1
       }
     ],
-    "status": "PAYEE",
+    "status": "LIVREE",
     "created_at": 1760624835.74876,
-    "validated_at": null,
-    "shipped_at": null,
-    "delivered_at": null,
+    "validated_at": 1760627838.501875,
+    "shipped_at": 1760627978.473309,
+    "delivered_at": 1760628112.511935,
     "cancelled_at": null,
     "refunded_at": null,
     "payment_id": "78bd409e-e973-4f55-8fc9-8d65679b205b",
     "invoice_id": "3374b6bd-b2a5-4c27-bd22-752397a9a2aa",
+    "delivery": {
+      "id": "ba716242-e631-4f82-a06a-6180c15fba54",
+      "order_id": "cf00f33c-0afe-4b07-a066-8c322db23ffc",
+      "transporteur": "Colissimo",
+      "tracking_number": "TRK-C77D748849",
+      "address": "Unknown Address",
+      "delivery_status": "LIVRÉE"
+    }
+  },
+  "b692b4f5-267e-41ca-8566-8a827a36cb47": {
+    "id": "b692b4f5-267e-41ca-8566-8a827a36cb47",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "items": [
+      {
+        "product_id": "a8cbc580-042b-4898-bc82-328e5fe3bdc9",
+        "name": "T-Shirt Logo",
+        "unit_price_cents": 1999,
+        "quantity": 1
+      }
+    ],
+    "status": "LIVREE",
+    "created_at": 1760627302.662644,
+    "validated_at": 1760627841.0473092,
+    "shipped_at": 1760627976.349109,
+    "delivered_at": 1760628115.5104141,
+    "cancelled_at": null,
+    "refunded_at": null,
+    "payment_id": "9ef1cb17-9143-4b9d-8ba1-ed4b02a45391",
+    "invoice_id": "de76a040-b0f3-4ab2-af6b-55751f93c7c5",
+    "delivery": {
+      "id": "4786b65e-b0ab-4604-8ada-fef8bab9ff7c",
+      "order_id": "b692b4f5-267e-41ca-8566-8a827a36cb47",
+      "transporteur": "Colissimo",
+      "tracking_number": "TRK-EA0FB6EA89",
+      "address": "12 Rue des Fleurs",
+      "delivery_status": "LIVRÉE"
+    }
+  },
+  "680f4ac1-78ac-449a-885a-55f17292992e": {
+    "id": "680f4ac1-78ac-449a-885a-55f17292992e",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "items": [
+      {
+        "product_id": "a8cbc580-042b-4898-bc82-328e5fe3bdc9",
+        "name": "T-Shirt Logo",
+        "unit_price_cents": 1999,
+        "quantity": 1
+      }
+    ],
+    "status": "LIVREE",
+    "created_at": 1760627771.878788,
+    "validated_at": 1760627832.434498,
+    "shipped_at": 1760627972.1702368,
+    "delivered_at": 1760628117.4961731,
+    "cancelled_at": null,
+    "refunded_at": null,
+    "payment_id": "730b7cf1-d855-499d-8e3e-b361121223f5",
+    "invoice_id": "cb955184-19b7-4292-8495-e8fb387283d6",
+    "delivery": {
+      "id": "11f6173f-6be1-4740-af07-8d5dd111ebb4",
+      "order_id": "680f4ac1-78ac-449a-885a-55f17292992e",
+      "transporteur": "Colissimo",
+      "tracking_number": "TRK-B5A4AA5E5A",
+      "address": "12 Rue des Fleurs",
+      "delivery_status": "LIVRÉE"
+    }
+  },
+  "5221dded-0b38-4217-84b2-fc8c95fb1f1a": {
+    "id": "5221dded-0b38-4217-84b2-fc8c95fb1f1a",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "items": [
+      {
+        "product_id": "a8cbc580-042b-4898-bc82-328e5fe3bdc9",
+        "name": "T-Shirt Logo",
+        "unit_price_cents": 1999,
+        "quantity": 6
+      },
+      {
+        "product_id": "1e6a1907-1267-41a4-afc8-722a54fc516c",
+        "name": "Sweat Capuche",
+        "unit_price_cents": 4999,
+        "quantity": 9
+      }
+    ],
+    "status": "ANNULEE",
+    "created_at": 1760628250.738165,
+    "validated_at": null,
+    "shipped_at": null,
+    "delivered_at": null,
+    "cancelled_at": 1760628742.8592,
+    "refunded_at": null,
+    "payment_id": "88933526-e71e-4fba-a82f-c00901724ee1",
+    "invoice_id": "1f70e7dd-3661-47a0-afb1-e9ecc1ab67be",
     "delivery": null
+  },
+  "e27fa93b-6e06-4f93-9432-441e73b1bd29": {
+    "id": "e27fa93b-6e06-4f93-9432-441e73b1bd29",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "items": [
+      {
+        "product_id": "a8cbc580-042b-4898-bc82-328e5fe3bdc9",
+        "name": "T-Shirt Logo",
+        "unit_price_cents": 1999,
+        "quantity": 15
+      },
+      {
+        "product_id": "1e6a1907-1267-41a4-afc8-722a54fc516c",
+        "name": "Sweat Capuche",
+        "unit_price_cents": 4999,
+        "quantity": 13
+      }
+    ],
+    "status": "LIVREE",
+    "created_at": 1760628629.077291,
+    "validated_at": 1760628706.924957,
+    "shipped_at": 1760628795.9745522,
+    "delivered_at": 1760628869.340289,
+    "cancelled_at": null,
+    "refunded_at": null,
+    "payment_id": "6c14d7a1-009d-443c-b85b-060f4e7cc166",
+    "invoice_id": "dd68eeae-650c-4e0f-839a-7b25e359796c",
+    "delivery": {
+      "id": "6d2475dc-449f-4d43-954f-3c73eacfc354",
+      "order_id": "e27fa93b-6e06-4f93-9432-441e73b1bd29",
+      "transporteur": "Colissimo",
+      "tracking_number": "TRK-C96E5157E4",
+      "address": "12 Rue des Fleurs",
+      "delivery_status": "LIVRÉE"
+    }
   }
 }

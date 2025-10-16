@@ -88,7 +88,9 @@ class Cart:
         total = 0
         for it in self.items.values():
             p = product_repo.get(it.product_id)
-            if p is None or not p.active:
+            # Ignore items whose product is missing, inactive, or whose ID no longer matches
+            # the item product_id (simulates a deleted/replaced product).
+            if p is None or not p.active or p.id != it.product_id:
                 continue
             total += p.price_cents * it.quantity
         return total
@@ -507,11 +509,13 @@ class SessionManager:
         """Créer une session JWT avec expiration"""
         import jwt
         from datetime import datetime, timedelta
+        import uuid
         
         payload = {
             'user_id': user_id,
             'exp': datetime.utcnow() + timedelta(seconds=self.session_duration),
             'iat': datetime.utcnow(),
+            'jti': uuid.uuid4().hex,  # assurer l'unicité du token
             'type': 'access_token'
         }
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
@@ -733,9 +737,9 @@ class OrderService:
         if not order:
             raise ValueError("Commande introuvable.")
         
-        # Vérifier l'idempotence
+        # Vérifier l'idempotence (scopée à la commande)
         existing_payment = self.payments.get_by_idempotency_key(idempotency_key)
-        if existing_payment:
+        if existing_payment and existing_payment.order_id == order_id:
             return existing_payment
         
         if order.status not in {OrderStatus.CREE, OrderStatus.VALIDEE}:
@@ -804,9 +808,11 @@ class OrderService:
         
         # Créer automatiquement les informations de livraison avec statut "PRÉPARÉE"
         if not order.delivery:
+            user = self.users.get(order.user_id)
+            address = user.address if user else "Unknown Address"
             order.delivery = self.delivery_svc.prepare_delivery(
-                order, 
-                address=self.users.get(order.user_id).address,
+                order,
+                address=address,
                 transporteur="Colissimo"  # Transporteur par défaut
             )
         
@@ -820,9 +826,16 @@ class OrderService:
         order = self.orders.get(order_id)
         if not order or order.status != OrderStatus.VALIDEE:
             raise ValueError("La commande doit être validée pour être expédiée.")
-        delivery = self.delivery_svc.prepare_delivery(order, address=self.users.get(order.user_id).address)
-        delivery = self.delivery_svc.ship(delivery)
-        order.delivery = delivery
+        # Utiliser la livraison existante si présente, sinon en préparer une nouvelle
+        if order.delivery:
+            delivery = self.delivery_svc.ship(order.delivery)
+            order.delivery = delivery
+        else:
+            user = self.users.get(order.user_id)
+            address = user.address if user else "Unknown Address"
+            delivery = self.delivery_svc.prepare_delivery(order, address=address)
+            delivery = self.delivery_svc.ship(delivery)
+            order.delivery = delivery
         order.status = OrderStatus.EXPEDIEE
         order.shipped_at = time.time()
         self.orders.update(order)

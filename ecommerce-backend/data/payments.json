@@ -54,5 +54,53 @@
     "created_at": 1760624843.940908,
     "idempotency_key": "cf00f33c-0afe-4b07-a066-8c322db23ffc_1760624843927_e9axz1bhn",
     "card_last4": "1111"
+  },
+  "9ef1cb17-9143-4b9d-8ba1-ed4b02a45391": {
+    "id": "9ef1cb17-9143-4b9d-8ba1-ed4b02a45391",
+    "order_id": "b692b4f5-267e-41ca-8566-8a827a36cb47",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "amount_cents": 1999,
+    "provider": "CB",
+    "provider_ref": "1d35e277-214b-447c-9ce3-e815b6d47bcd",
+    "succeeded": true,
+    "created_at": 1760627308.941264,
+    "idempotency_key": "b692b4f5-267e-41ca-8566-8a827a36cb47_1760627308931_9owkm7ygv",
+    "card_last4": "1111"
+  },
+  "730b7cf1-d855-499d-8e3e-b361121223f5": {
+    "id": "730b7cf1-d855-499d-8e3e-b361121223f5",
+    "order_id": "680f4ac1-78ac-449a-885a-55f17292992e",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "amount_cents": 1999,
+    "provider": "CB",
+    "provider_ref": "23ae879d-c6ea-4826-8a12-913534d8a7f6",
+    "succeeded": true,
+    "created_at": 1760627783.689099,
+    "idempotency_key": "680f4ac1-78ac-449a-885a-55f17292992e_1760627783679_ceh33oca4",
+    "card_last4": "1111"
+  },
+  "88933526-e71e-4fba-a82f-c00901724ee1": {
+    "id": "88933526-e71e-4fba-a82f-c00901724ee1",
+    "order_id": "5221dded-0b38-4217-84b2-fc8c95fb1f1a",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "amount_cents": 56985,
+    "provider": "CB",
+    "provider_ref": "bb7fac09-5214-4779-9ca0-a75fc4519b4d",
+    "succeeded": true,
+    "created_at": 1760628258.346526,
+    "idempotency_key": "5221dded-0b38-4217-84b2-fc8c95fb1f1a_1760628258334_7xmf7q4s3",
+    "card_last4": "1111"
+  },
+  "6c14d7a1-009d-443c-b85b-060f4e7cc166": {
+    "id": "6c14d7a1-009d-443c-b85b-060f4e7cc166",
+    "order_id": "e27fa93b-6e06-4f93-9432-441e73b1bd29",
+    "user_id": "de15339a-bd9f-47eb-a777-b03f676f64db",
+    "amount_cents": 94972,
+    "provider": "CB",
+    "provider_ref": "8c40ef11-0ebb-4fa4-87f6-a5c754146f64",
+    "succeeded": true,
+    "created_at": 1760628636.089951,
+    "idempotency_key": "e27fa93b-6e06-4f93-9432-441e73b1bd29_1760628636081_reo1run5x",
+    "card_last4": "1212"
   }
 }

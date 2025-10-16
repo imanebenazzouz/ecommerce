@@ -399,7 +399,7 @@ export default function Admin() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                       <div>
-                        <strong>Commande #{order.id.slice(0, 8)}</strong>
+                        <strong>Commande #{order.id.slice(-8)}</strong>
                         <div style={{ fontSize: 14, color: "#64748b" }}>
                           Client: {order.user_id.slice(0, 8)}...
                         </div>
@@ -447,7 +447,7 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await api.adminValidateOrder(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(0, 8)} validée`);
+                              setMsg(`✅ Commande ${order.id.slice(-8)} validée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               setErr(e.message);
@@ -463,7 +463,7 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await api.adminShipOrder(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(0, 8)} expédiée`);
+                              setMsg(`✅ Commande ${order.id.slice(-8)} expédiée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               setErr(e.message);
@@ -479,7 +479,7 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await api.adminMarkDelivered(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(0, 8)} marquée livrée`);
+                              setMsg(`✅ Commande ${order.id.slice(-8)} marquée livrée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               setErr(e.message);
