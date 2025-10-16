@@ -20,7 +20,8 @@ from backend_demo import (
     UserRepository, ProductRepository, CartRepository, OrderRepository,
     InvoiceRepository, PaymentRepository, ThreadRepository, SessionManager,
     AuthService, CatalogService, CartService, BillingService, DeliveryService,
-    PaymentGateway, OrderService, Product, OrderStatus, DeliveryStatus, Delivery
+    PaymentGateway, OrderService, CustomerService, Product, OrderStatus, DeliveryStatus, Delivery,
+    MessageThread, Message
 )
 
 app = FastAPI(title="Ecommerce API (TP)")
@@ -72,6 +73,7 @@ billing = BillingService(invoices)
 delivery_svc = DeliveryService()
 gateway = PaymentGateway()
 order_svc = OrderService(orders, products, carts, payments, invoices, billing, delivery_svc, gateway, users)
+support_svc = CustomerService(threads, users)
 
 # Jeu de données de base
 if not products.list_active():
@@ -393,6 +395,39 @@ class InvoiceOut(BaseModel):
     lines: List[InvoiceLineOut]
     total_cents: int
     issued_at: float
+
+# ---- Schémas pour le support client ----
+class ThreadCreateIn(BaseModel):
+    subject: str
+    order_id: Optional[str] = None
+
+class ThreadOut(BaseModel):
+    id: str
+    user_id: str
+    order_id: Optional[str]
+    subject: str
+    closed: bool
+    created_at: float
+
+class MessageCreateIn(BaseModel):
+    content: str
+
+class MessageOut(BaseModel):
+    id: str
+    thread_id: str
+    author_user_id: Optional[str]
+    content: str
+    created_at: float
+    author_name: Optional[str] = None
+
+class ThreadDetailOut(BaseModel):
+    id: str
+    user_id: str
+    order_id: Optional[str]
+    subject: str
+    closed: bool
+    created_at: float
+    messages: List[MessageOut]
 
 
 # ------------------------------- Routes --------------------------------
@@ -1000,4 +1035,238 @@ def admin_update_tracking(order_id: str, inp: DeliveryIn, u = Depends(require_ad
     except HTTPException:
         raise
     except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+# ====================== SUPPORT CLIENT ======================
+@app.post("/support/threads", response_model=ThreadOut, status_code=201)
+def create_support_thread(inp: ThreadCreateIn, uid: str = Depends(current_user_id)):
+    """Créer un nouveau fil de discussion de support"""
+    try:
+        # Vérifier que la commande existe si order_id est fourni et non vide
+        if inp.order_id and inp.order_id.strip():
+            order = orders.get(inp.order_id)
+            if not order or order.user_id != uid:
+                raise HTTPException(404, "Commande introuvable")
+        
+        thread = support_svc.open_thread(uid, inp.subject, inp.order_id)
+        return ThreadOut(
+            id=thread.id,
+            user_id=thread.user_id,
+            order_id=thread.order_id,
+            subject=thread.subject,
+            closed=thread.closed,
+            created_at=time.time()
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+@app.get("/support/threads", response_model=List[ThreadOut])
+def list_support_threads(uid: str = Depends(current_user_id)):
+    """Lister les fils de discussion de l'utilisateur"""
+    user_threads = threads.list_by_user(uid)
+    return [
+        ThreadOut(
+            id=thread.id,
+            user_id=thread.user_id,
+            order_id=thread.order_id,
+            subject=thread.subject,
+            closed=thread.closed,
+            created_at=time.time()
+        )
+        for thread in user_threads
+    ]
+
+@app.get("/support/threads/{thread_id}", response_model=ThreadDetailOut)
+def get_support_thread(thread_id: str, uid: str = Depends(current_user_id)):
+    """Récupérer un fil de discussion avec ses messages"""
+    thread = threads.get(thread_id)
+    if not thread:
+        raise HTTPException(404, "Fil de discussion introuvable")
+    
+    # Vérifier que l'utilisateur peut accéder à ce thread
+    if thread.user_id != uid:
+        raise HTTPException(403, "Accès refusé à ce fil de discussion")
+    
+    # Préparer les messages avec les noms des auteurs
+    messages_out = []
+    for msg in thread.messages:
+        author_name = None
+        if msg.author_user_id:
+            author = users.get(msg.author_user_id)
+            if author:
+                author_name = f"{author.first_name} {author.last_name}"
+            else:
+                author_name = "Utilisateur supprimé"
+        else:
+            author_name = "Support"
+        
+        messages_out.append(MessageOut(
+            id=msg.id,
+            thread_id=msg.thread_id,
+            author_user_id=msg.author_user_id,
+            content=msg.body,
+            created_at=msg.created_at,
+            author_name=author_name
+        ))
+    
+    return ThreadDetailOut(
+        id=thread.id,
+        user_id=thread.user_id,
+        order_id=thread.order_id,
+        subject=thread.subject,
+        closed=thread.closed,
+        created_at=time.time(),
+        messages=messages_out
+    )
+
+@app.post("/support/threads/{thread_id}/messages", response_model=MessageOut, status_code=201)
+def post_support_message(thread_id: str, inp: MessageCreateIn, uid: str = Depends(current_user_id)):
+    """Poster un message dans un fil de discussion"""
+    try:
+        thread = threads.get(thread_id)
+        if not thread:
+            raise HTTPException(404, "Fil de discussion introuvable")
+        
+        # Vérifier que l'utilisateur peut poster dans ce thread
+        if thread.user_id != uid:
+            raise HTTPException(403, "Accès refusé à ce fil de discussion")
+        
+        # Vérifier que le thread n'est pas fermé
+        if thread.closed:
+            raise HTTPException(400, "Ce fil de discussion est fermé")
+        
+        message = support_svc.post_message(thread_id, uid, inp.content)
+        
+        # Récupérer le nom de l'auteur
+        author = users.get(uid)
+        author_name = f"{author.first_name} {author.last_name}" if author else "Utilisateur"
+        
+        return MessageOut(
+            id=message.id,
+            thread_id=message.thread_id,
+            author_user_id=message.author_user_id,
+            content=message.body,
+            created_at=message.created_at,
+            author_name=author_name
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+# ====================== ADMIN: Support ======================
+@app.get("/admin/support/threads", response_model=List[ThreadDetailOut])
+def admin_list_support_threads(u = Depends(require_admin)):
+    """Lister tous les fils de discussion (admin)"""
+    all_threads = list(threads._by_id.values())
+    result = []
+    
+    for thread in all_threads:
+        # Préparer les messages avec les noms des auteurs
+        messages_out = []
+        for msg in thread.messages:
+            author_name = None
+            if msg.author_user_id:
+                author = users.get(msg.author_user_id)
+                if author:
+                    author_name = f"{author.first_name} {author.last_name}"
+                else:
+                    author_name = "Utilisateur supprimé"
+            else:
+                author_name = "Support"
+            
+            messages_out.append(MessageOut(
+                id=msg.id,
+                thread_id=msg.thread_id,
+                author_user_id=msg.author_user_id,
+                content=msg.body,
+                created_at=msg.created_at,
+                author_name=author_name
+            ))
+        
+        result.append(ThreadDetailOut(
+            id=thread.id,
+            user_id=thread.user_id,
+            order_id=thread.order_id,
+            subject=thread.subject,
+            closed=thread.closed,
+            created_at=time.time(),
+            messages=messages_out
+        ))
+    
+    return result
+
+@app.post("/admin/support/threads/{thread_id}/close")
+def admin_close_support_thread(thread_id: str, u = Depends(require_admin)):
+    """Fermer un fil de discussion (admin)"""
+    try:
+        support_svc.close_thread(thread_id, u.id)
+        return {"ok": True, "message": "Fil de discussion fermé"}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
+
+@app.get("/admin/support/threads/{thread_id}", response_model=ThreadDetailOut)
+def admin_get_support_thread(thread_id: str, u = Depends(require_admin)):
+    """Récupérer un fil de discussion spécifique (admin)"""
+    thread = threads.get(thread_id)
+    if not thread:
+        raise HTTPException(404, "Fil de discussion introuvable")
+    
+    # Préparer les messages avec les noms des auteurs
+    messages_out = []
+    for msg in thread.messages:
+        author_name = None
+        if msg.author_user_id:
+            author = users.get(msg.author_user_id)
+            if author:
+                author_name = f"{author.first_name} {author.last_name}"
+            else:
+                author_name = "Utilisateur supprimé"
+        else:
+            author_name = "Support"
+        
+        messages_out.append(MessageOut(
+            id=msg.id,
+            thread_id=msg.thread_id,
+            author_user_id=msg.author_user_id,
+            content=msg.body,
+            created_at=msg.created_at,
+            author_name=author_name
+        ))
+    
+    return ThreadDetailOut(
+        id=thread.id,
+        user_id=thread.user_id,
+        order_id=thread.order_id,
+        subject=thread.subject,
+        closed=thread.closed,
+        created_at=time.time(),
+        messages=messages_out
+    )
+
+@app.post("/admin/support/threads/{thread_id}/messages", response_model=MessageOut, status_code=201)
+def admin_post_support_message(thread_id: str, inp: MessageCreateIn, u = Depends(require_admin)):
+    """Poster un message en tant qu'agent support (admin)"""
+    try:
+        thread = threads.get(thread_id)
+        if not thread:
+            raise HTTPException(404, "Fil de discussion introuvable")
+        
+        # Vérifier que le thread n'est pas fermé
+        if thread.closed:
+            raise HTTPException(400, "Ce fil de discussion est fermé")
+        
+        # Poster le message en tant qu'agent (author_user_id = None)
+        message = support_svc.post_message(thread_id, None, inp.content)
+        
+        return MessageOut(
+            id=message.id,
+            thread_id=message.thread_id,
+            author_user_id=message.author_user_id,
+            content=message.body,
+            created_at=message.created_at,
+            author_name="Support"
+        )
+    except ValueError as e:
         raise HTTPException(400, str(e))

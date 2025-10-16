@@ -258,6 +258,63 @@ async function adminRefundOrder(order_id, body = {}) {
   return request(`/admin/orders/${order_id}/refund`, { method: "POST", body: JSON.stringify(body) });
 }
 
+/* =========================
+   SUPPORT CLIENT
+   ========================= */
+
+// POST /support/threads { subject, order_id? }
+async function createSupportThread({ subject, order_id = null }) {
+  return request("/support/threads", {
+    method: "POST",
+    body: JSON.stringify({ subject, order_id }),
+  });
+}
+
+// GET /support/threads
+async function listSupportThreads() {
+  return request("/support/threads");
+}
+
+// GET /support/threads/:id
+async function getSupportThread(threadId) {
+  return request(`/support/threads/${threadId}`);
+}
+
+// POST /support/threads/:id/messages { content }
+async function postSupportMessage(threadId, { content }) {
+  return request(`/support/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+/* =========================
+   ADMIN SUPPORT
+   ========================= */
+
+// GET /admin/support/threads
+async function adminListSupportThreads() {
+  return request("/admin/support/threads");
+}
+
+// GET /admin/support/threads/:id
+async function adminGetSupportThread(threadId) {
+  return request(`/admin/support/threads/${threadId}`);
+}
+
+// POST /admin/support/threads/:id/close
+async function adminCloseSupportThread(threadId) {
+  return request(`/admin/support/threads/${threadId}/close`, { method: "POST" });
+}
+
+// POST /admin/support/threads/:id/messages { content }
+async function adminPostSupportMessage(threadId, { content }) {
+  return request(`/admin/support/threads/${threadId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
 export const api = {
   // Auth
   register, login, logout, me, updateProfile, setToken,
@@ -287,4 +344,16 @@ export const api = {
   
   // Suivi de livraison
   getOrderTracking,
+
+  // Support Client
+  createSupportThread,
+  listSupportThreads,
+  getSupportThread,
+  postSupportMessage,
+
+  // Admin Support
+  adminListSupportThreads,
+  adminGetSupportThread,
+  adminCloseSupportThread,
+  adminPostSupportMessage,
 };

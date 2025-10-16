@@ -11,6 +11,8 @@ import Profile from "./pages/Profile";
 import Orders from "./pages/Orders";
 import OrderDetail from "./pages/OrderDetail";
 import AdminOrderDetail from "./pages/AdminOrderDetail";
+import Support from "./pages/Support";
+import AdminSupport from "./pages/AdminSupport";
 import "./styles/global.css";
 
 function AppContent() {
@@ -53,9 +55,17 @@ function AppContent() {
 
         {/* ✅ Lien Profil visible UNIQUEMENT si connecté (user ou admin) */}
         {isAuth && <Link to="/profile">Mon profil</Link>}
+        
+        {/* ✅ Lien Support visible UNIQUEMENT si connecté */}
+        {isAuth && <Link to="/support">Support</Link>}
 
         {/* ✅ Si admin connecté, affiche lien Admin */}
-        {role === "admin" && <Link to="/admin">Admin</Link>}
+        {role === "admin" && (
+          <>
+            <Link to="/admin">Admin</Link>
+            <Link to="/admin/support">Support Admin</Link>
+          </>
+        )}
 
         {/* ✅ Si pas connecté → Connexion / Inscription */}
         {!isAuth && (
@@ -102,10 +112,12 @@ function AppContent() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/orders/:orderId" element={<OrderDetail />} />
         <Route path="/orders/:orderId/invoice" element={<OrderDetail />} />
+        <Route path="/support" element={<Support />} />
 
         {/* ✅ Route Admin (protégée visuellement par le menu) */}
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/orders/:orderId" element={<AdminOrderDetail />} />
+        <Route path="/admin/support" element={<AdminSupport />} />
       </Routes>
     </div>
   );
