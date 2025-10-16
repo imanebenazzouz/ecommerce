@@ -408,6 +408,7 @@ class ThreadOut(BaseModel):
     subject: str
     closed: bool
     created_at: float
+    unread_count: int = 0
 
 class MessageCreateIn(BaseModel):
     content: str
@@ -427,6 +428,7 @@ class ThreadDetailOut(BaseModel):
     subject: str
     closed: bool
     created_at: float
+    unread_count: int = 0
     messages: List[MessageOut]
 
 
@@ -1056,7 +1058,8 @@ def create_support_thread(inp: ThreadCreateIn, uid: str = Depends(current_user_i
             order_id=thread.order_id,
             subject=thread.subject,
             closed=thread.closed,
-            created_at=time.time()
+            created_at=time.time(),
+            unread_count=thread.unread_count
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -1072,7 +1075,8 @@ def list_support_threads(uid: str = Depends(current_user_id)):
             order_id=thread.order_id,
             subject=thread.subject,
             closed=thread.closed,
-            created_at=time.time()
+            created_at=time.time(),
+            unread_count=thread.unread_count
         )
         for thread in user_threads
     ]
@@ -1117,8 +1121,20 @@ def get_support_thread(thread_id: str, uid: str = Depends(current_user_id)):
         subject=thread.subject,
         closed=thread.closed,
         created_at=time.time(),
+        unread_count=thread.unread_count,
         messages=messages_out
     )
+
+@app.post("/support/threads/{thread_id}/mark-read")
+def mark_thread_as_read(thread_id: str, uid: str = Depends(current_user_id)):
+    """Marquer tous les messages d'un thread comme lus"""
+    try:
+        support_svc.mark_thread_as_read(thread_id, uid)
+        return {"message": "Messages marqués comme lus"}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except PermissionError as e:
+        raise HTTPException(403, str(e))
 
 @app.post("/support/threads/{thread_id}/messages", response_model=MessageOut, status_code=201)
 def post_support_message(thread_id: str, inp: MessageCreateIn, uid: str = Depends(current_user_id)):
@@ -1242,6 +1258,7 @@ def admin_get_support_thread(thread_id: str, u = Depends(require_admin)):
         subject=thread.subject,
         closed=thread.closed,
         created_at=time.time(),
+        unread_count=thread.unread_count,
         messages=messages_out
     )
 

@@ -288,6 +288,11 @@ async function postSupportMessage(threadId, { content }) {
   });
 }
 
+// POST /support/threads/:id/mark-read
+async function markSupportThreadAsRead(threadId) {
+  return request(`/support/threads/${threadId}/mark-read`, { method: "POST" });
+}
+
 /* =========================
    ADMIN SUPPORT
    ========================= */
@@ -350,6 +355,7 @@ export const api = {
   listSupportThreads,
   getSupportThread,
   postSupportMessage,
+  markSupportThreadAsRead,
 
   // Admin Support
   adminListSupportThreads,

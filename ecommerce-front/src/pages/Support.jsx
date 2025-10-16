@@ -43,6 +43,17 @@ export default function Support() {
     try {
       const data = await api.getSupportThread(threadId);
       setSelectedThread(data);
+      
+      // Marquer automatiquement les messages comme lus quand on ouvre le thread
+      if (data.unread_count > 0) {
+        try {
+          await api.markSupportThreadAsRead(threadId);
+          // Mettre à jour la liste des threads pour refléter le changement
+          await loadThreads();
+        } catch (markReadErr) {
+          console.error("Erreur lors du marquage des messages comme lus:", markReadErr);
+        }
+      }
     } catch (err) {
       setError("Erreur lors du chargement du fil");
       console.error(err);
@@ -166,10 +177,29 @@ export default function Support() {
                     cursor: "pointer",
                     background: selectedThread?.id === thread.id ? "#f0f8ff" : "white",
                     borderLeft: selectedThread?.id === thread.id ? "4px solid #007bff" : "4px solid transparent",
+                    position: "relative",
                   }}
                 >
-                  <div style={{ fontWeight: "bold", marginBottom: 4 }}>
+                  <div style={{ fontWeight: "bold", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
                     {thread.subject}
+                    {thread.unread_count > 0 && (
+                      <span
+                        style={{
+                          background: "#dc2626",
+                          color: "white",
+                          borderRadius: "50%",
+                          width: 20,
+                          height: 20,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {thread.unread_count}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: "#666" }}>
                     {thread.order_id ? `Commande #${thread.order_id.slice(-8)}` : "Demande générale"}

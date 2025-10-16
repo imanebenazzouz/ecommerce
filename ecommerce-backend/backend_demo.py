@@ -140,6 +140,7 @@ class MessageThread:
     subject: str
     messages: List["Message"] = field(default_factory=list)
     closed: bool = False
+    unread_count: int = 0  # Nombre de messages non lus par le client
 
 @dataclass
 class Message:
@@ -148,6 +149,7 @@ class Message:
     author_user_id: Optional[str]  # None = agent support
     body: str
     created_at: float
+    read_by_client: bool = False  # True si le client a lu ce message
 
 @dataclass
 class OrderItem:
@@ -885,7 +887,27 @@ class CustomerService:
             created_at=time.time()
         )
         th.messages.append(msg)
+        
+        # Si le message est de l'agent (author_user_id est None), incrémenter le compteur de messages non lus
+        if author_user_id is None:
+            th.unread_count += 1
+        
         return msg
+
+    def mark_thread_as_read(self, thread_id: str, user_id: str):
+        """Marquer tous les messages d'un thread comme lus par le client"""
+        th = self.threads.get(thread_id)
+        if not th:
+            raise ValueError("Fil introuvable.")
+        if th.user_id != user_id:
+            raise PermissionError("Accès refusé à ce fil.")
+        
+        # Marquer tous les messages comme lus et remettre le compteur à zéro
+        for msg in th.messages:
+            if msg.author_user_id is None:  # Message de l'agent
+                msg.read_by_client = True
+        th.unread_count = 0
+        return th
 
     def close_thread(self, thread_id: str, admin_user_id: str):
         admin = self.users.get(admin_user_id)
