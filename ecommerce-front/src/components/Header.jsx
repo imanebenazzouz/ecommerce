@@ -40,7 +40,7 @@ export default function Header() {
             {/* CONNECTÉ → Déconnexion (et futurs liens: Profil, Commandes…) */}
             {isAuthenticated() && (
               <li>
-                <button className="nav-link btn-secondary" onClick={handleLogout}>
+                <button className="nav-link btn-secondary logout-btn" onClick={handleLogout}>
                   Déconnexion
                 </button>
               </li>

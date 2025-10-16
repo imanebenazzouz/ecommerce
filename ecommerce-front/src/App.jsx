@@ -84,12 +84,15 @@ function AppContent() {
             </span>
             <button
               onClick={handleLogout}
+              className="logout-btn"
               style={{
-                background: "transparent",
-                border: "1px solid #ddd",
+                background: "#eff6ff",
+                color: "#2563eb",
+                border: "1px solid #bfdbfe",
                 borderRadius: 6,
                 padding: "4px 10px",
                 cursor: "pointer",
+                fontWeight: "600"
               }}
               title="Se déconnecter"
             >
