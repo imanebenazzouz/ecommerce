@@ -1,5 +1,6 @@
 // src/pages/Catalog.jsx
 import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import "../styles/catalog.css";
 
@@ -7,6 +8,8 @@ export default function Catalog() {
   const [products, setProducts] = useState([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [user, setUser] = useState(null); // <- pour savoir si connecté
+  const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
@@ -15,6 +18,14 @@ export default function Catalog() {
         setProducts(data);
       } catch (e) {
         setErr(e.message);
+      }
+
+      // Essaie de récupérer l'utilisateur courant (si token présent)
+      try {
+        const me = await api.me();
+        setUser(me); // connecté (client ou admin)
+      } catch {
+        setUser(null); // non connecté
       }
     })();
   }, []);
@@ -32,6 +43,12 @@ export default function Catalog() {
     }
   }
 
+  async function onLogout() {
+    await api.logout();
+    setUser(null);
+    navigate("/"); // retour accueil
+  }
+
   const fmt = new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
@@ -39,6 +56,18 @@ export default function Catalog() {
 
   return (
     <div className="cat">
+      {/* -------- Menu haut -------- */}
+      <nav className="nav" style={{ display: "flex", gap: 12, padding: 12 }}>
+        <Link to="/">Accueil</Link>
+        <Link to="/cart">Panier</Link>
+        {user && <Link to="/profile">Mon profil</Link>}
+        {user ? (
+          <button onClick={onLogout}>Déconnexion</button>
+        ) : (
+          <Link to="/login">Connexion</Link>
+        )}
+      </nav>
+
       {/* Bandeau d’accueil */}
       <section className="hero">
         <h1 className="hero__title">Bienvenue sur notre boutique</h1>

@@ -108,6 +108,12 @@ class LoginIn(BaseModel):
 class TokenOut(BaseModel):
     token: str
 
+# ---- Schéma pour mise à jour du profil ----
+class UserUpdateIn(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address: Optional[str] = None
+
 class ProductOut(BaseModel):
     id: str
     name: str
@@ -205,9 +211,24 @@ def logout(uid: str = Depends(current_user_id), authorization: Optional[str] = H
     auth.logout(token)
     return {"ok": True}
 
-# Qui suis-je (retourne l'utilisateur courant + is_admin)
+# Voir son profil
 @app.get("/auth/me", response_model=UserOut)
 def me(u = Depends(current_user)):
+    return UserOut(**u.__dict__)
+
+# ---- Mettre à jour son profil ----
+@app.put("/auth/profile", response_model=UserOut)
+def update_profile(inp: UserUpdateIn, u = Depends(current_user)):
+    if inp.first_name is not None:
+        u.first_name = inp.first_name
+    if inp.last_name is not None:
+        u.last_name = inp.last_name
+    if inp.address is not None:
+        u.address = inp.address
+
+    if hasattr(users, "update"):
+        users.update(u)
+
     return UserOut(**u.__dict__)
 
 # ---------- Produits (public) ----------
@@ -274,7 +295,6 @@ def my_orders(uid: str = Depends(current_user_id)):
 # ====================== ADMIN: Produits ======================
 @app.get("/admin/products", response_model=list[ProductOut])
 def admin_list_products(u = Depends(require_admin)):
-    # Si ProductRepository a list_all(): on l'utilise, sinon on retombe sur list_active()
     all_products = products.list_all() if hasattr(products, "list_all") else products.list_active()
     return [ProductOut(**p.__dict__) for p in all_products]
 
@@ -296,13 +316,11 @@ def admin_update_product(product_id: str, inp: ProductUpdateIn, u = Depends(requ
     p = products.get(product_id)
     if not p:
         raise HTTPException(404, "Produit introuvable")
-    # patch partiel
     if inp.name is not None: p.name = inp.name
     if inp.description is not None: p.description = inp.description
     if inp.price_cents is not None: p.price_cents = inp.price_cents
     if inp.stock_qty is not None: p.stock_qty = inp.stock_qty
     if inp.active is not None: p.active = inp.active
-    # persistance si dispo
     if hasattr(products, "update"): products.update(p)
     return ProductOut(**p.__dict__)
 
@@ -314,34 +332,26 @@ def admin_delete_product(product_id: str, u = Depends(require_admin)):
     if hasattr(products, "delete"):
         products.delete(product_id)
     else:
-        # fallback: désactivation si pas de delete
         p.active = False
         if hasattr(products, "update"): products.update(p)
     return {"ok": True}
 
 
-# ====================== ADMIN: Commandes (backoffice) ======================
+# ====================== ADMIN: Commandes ======================
 @app.get("/admin/orders", response_model=list[OrderOut])
 def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin)):
     out: list[OrderOut] = []
-    # Si OrderRepository expose list_all(), on l'utilise, sinon on agrège par user si possible
     if hasattr(orders, "list_all"):
         order_list = orders.list_all()
     else:
-        if user_id:
-            # si l'API du repo le permet
-            if hasattr(orders, "list_by_user"):
-                order_list = orders.list_by_user(user_id)
-            else:
-                order_list = []
+        if user_id and hasattr(orders, "list_by_user"):
+            order_list = orders.list_by_user(user_id)
+        elif hasattr(orders, "_by_user") and hasattr(orders, "list_by_user"):
+            order_list = []
+            for uid in orders._by_user.keys():
+                order_list.extend(orders.list_by_user(uid))
         else:
-            # fallback: itérer sur un éventuel index interne
-            if hasattr(orders, "_by_user") and hasattr(orders, "list_by_user"):
-                order_list = []
-                for uid in orders._by_user.keys():
-                    order_list.extend(orders.list_by_user(uid))
-            else:
-                order_list = []
+            order_list = []
 
     if user_id:
         order_list = [o for o in order_list if o.user_id == user_id]
@@ -360,62 +370,30 @@ def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin))
 def admin_validate_order(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_validate_order(u.id, order_id)
-        return OrderOut(
-            id=o.id,
-            user_id=o.user_id,
-            items=[OrderItemOut(**i.__dict__) for i in o.items],
-            status=o.status.name,
-            total_cents=o.total_cents(),
-        )
-    except PermissionError as e:
-        raise HTTPException(403, str(e))
-    except ValueError as e:
+        return OrderOut(**o.__dict__)
+    except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
 @app.post("/admin/orders/{order_id}/ship", response_model=OrderOut)
 def admin_ship_order(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_ship_order(u.id, order_id)
-        return OrderOut(
-            id=o.id,
-            user_id=o.user_id,
-            items=[OrderItemOut(**i.__dict__) for i in o.items],
-            status=o.status.name,
-            total_cents=o.total_cents(),
-        )
-    except PermissionError as e:
-        raise HTTPException(403, str(e))
-    except ValueError as e:
+        return OrderOut(**o.__dict__)
+    except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
 @app.post("/admin/orders/{order_id}/mark-delivered", response_model=OrderOut)
 def admin_mark_delivered(order_id: str, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_mark_delivered(u.id, order_id)
-        return OrderOut(
-            id=o.id,
-            user_id=o.user_id,
-            items=[OrderItemOut(**i.__dict__) for i in o.items],
-            status=o.status.name,
-            total_cents=o.total_cents(),
-        )
-    except PermissionError as e:
-        raise HTTPException(403, str(e))
-    except ValueError as e:
+        return OrderOut(**o.__dict__)
+    except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))
 
 @app.post("/admin/orders/{order_id}/refund", response_model=OrderOut)
 def admin_refund_order(order_id: str, inp: RefundIn, u = Depends(require_admin)):
     try:
         o = order_svc.backoffice_refund(u.id, order_id, amount_cents=inp.amount_cents)
-        return OrderOut(
-            id=o.id,
-            user_id=o.user_id,
-            items=[OrderItemOut(**i.__dict__) for i in o.items],
-            status=o.status.name,
-            total_cents=o.total_cents(),
-        )
-    except PermissionError as e:
-        raise HTTPException(403, str(e))
-    except ValueError as e:
+        return OrderOut(**o.__dict__)
+    except (PermissionError, ValueError) as e:
         raise HTTPException(400, str(e))

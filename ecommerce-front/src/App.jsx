@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile"; // ✅ AJOUT
 import "./styles/global.css";
 
 export default function App() {
@@ -50,6 +51,9 @@ export default function App() {
         <Link to="/">Accueil</Link>
         <Link to="/cart">Panier</Link>
 
+        {/* ✅ Lien Profil visible UNIQUEMENT si connecté (user ou admin) */}
+        {isAuth && <Link to="/profile">Mon profil</Link>}
+
         {/* ✅ Si admin connecté, affiche lien Admin */}
         {role === "admin" && <Link to="/admin">Admin</Link>}
 
@@ -61,7 +65,7 @@ export default function App() {
           </>
         )}
 
-        {/* ✅ Si connecté → afficher rôle + bouton Déconnexion */}
+        {/* ✅ Si connecté → affichage rôle + bouton Déconnexion */}
         {isAuth && (
           <>
             <span style={{ color: "#555" }}>
@@ -91,6 +95,11 @@ export default function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* ✅ Route Profil */}
+        <Route path="/profile" element={<Profile />} />
+
+        {/* ✅ Route Admin (protégée visuellement par le menu) */}
         <Route path="/admin" element={<Admin />} />
       </Routes>
     </div>

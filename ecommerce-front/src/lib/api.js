@@ -73,6 +73,15 @@ async function me() {
   return request("/auth/me");
 }
 
+// PUT /auth/profile → met à jour { first_name?, last_name?, address? }
+async function updateProfile({ first_name, last_name, address }) {
+  const body = {};
+  if (first_name !== undefined) body.first_name = first_name;
+  if (last_name !== undefined) body.last_name = last_name;
+  if (address !== undefined) body.address = address;
+  return request("/auth/profile", { method: "PUT", body: JSON.stringify(body) });
+}
+
 // POST /auth/logout
 async function logout() {
   try {
@@ -193,7 +202,7 @@ async function adminRefundOrder(order_id, body = {}) {
 
 export const api = {
   // Auth
-  register, login, logout, me, setToken,
+  register, login, logout, me, updateProfile, setToken,
 
   // Catalogue / Panier / Commandes (user)
   listProducts,
