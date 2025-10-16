@@ -36,6 +36,12 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
     "http://localhost:5178",   # Port alternatif Vite
+    "http://localhost:5181",   # Port alternatif Vite
+    "http://127.0.0.1:5181",   # Port alternatif Vite
+    "http://localhost:5182",   # Port alternatif Vite
+    "http://127.0.0.1:5182",   # Port alternatif Vite
+    "http://localhost:5183",   # Port alternatif Vite
+    "http://127.0.0.1:5183",   # Port alternatif Vite
 ]
 
 # Ajouter les origines de production si définies

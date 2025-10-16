@@ -18,10 +18,17 @@ export default function Support() {
     order_id: "",
   });
 
+  // États pour l'autocomplétion des commandes
+  const [userOrders, setUserOrders] = useState([]);
+  const [showOrderSuggestions, setShowOrderSuggestions] = useState(false);
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  const [orderValidation, setOrderValidation] = useState({ isValid: null, message: "" });
+
   // Charger les threads au montage
   useEffect(() => {
     if (isAuthenticated()) {
       loadThreads();
+      loadUserOrders();
     }
   }, [isAuthenticated]);
 
@@ -36,6 +43,15 @@ export default function Support() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserOrders = async () => {
+    try {
+      const orders = await api.myOrders();
+      setUserOrders(orders);
+    } catch (err) {
+      console.error("Erreur lors du chargement des commandes:", err);
     }
   };
 
@@ -68,6 +84,15 @@ export default function Support() {
       return;
     }
     
+    // Validation de la commande si un ID est fourni
+    if (newThread.order_id && newThread.order_id.trim()) {
+      const orderExists = userOrders.find(order => order.id === newThread.order_id.trim());
+      if (!orderExists) {
+        setError("❌ L'ID de commande saisi n'existe pas dans vos commandes. Veuillez utiliser l'autocomplétion ou laisser le champ vide.");
+        return;
+      }
+    }
+    
     try {
       const data = await api.createSupportThread({
         subject: newThread.subject,
@@ -76,11 +101,49 @@ export default function Support() {
       setThreads([data, ...threads]);
       setNewThread({ subject: "", order_id: "" });
       setShowCreateForm(false);
+      setShowOrderSuggestions(false);
+      setOrderValidation({ isValid: null, message: "" });
       setError(null);
     } catch (err) {
       console.error("Erreur lors de la création du fil:", err);
       setError(`Erreur lors de la création du fil: ${err.message || err}`);
     }
+  };
+
+  // Fonctions pour l'autocomplétion des commandes
+  const handleOrderIdChange = (value) => {
+    setNewThread({ ...newThread, order_id: value });
+    
+    // Réinitialiser la validation
+    setOrderValidation({ isValid: null, message: "" });
+    
+    if (value.trim()) {
+      const filtered = userOrders.filter(order => 
+        order.id.toLowerCase().includes(value.toLowerCase()) ||
+        order.id.slice(-8).includes(value)
+      );
+      setFilteredOrders(filtered);
+      setShowOrderSuggestions(filtered.length > 0);
+      
+      // Vérifier si l'ID saisi correspond exactement à une commande
+      const exactMatch = userOrders.find(order => order.id === value.trim());
+      if (exactMatch) {
+        setOrderValidation({ isValid: true, message: "✅ Commande trouvée" });
+      } else if (value.trim().length > 8) {
+        // Si l'utilisateur a tapé quelque chose de long qui ne correspond à aucune commande
+        setOrderValidation({ isValid: false, message: "❌ Commande introuvable" });
+      }
+    } else {
+      setShowOrderSuggestions(false);
+      setFilteredOrders([]);
+    }
+  };
+
+  const selectOrder = (orderId) => {
+    setNewThread({ ...newThread, order_id: orderId });
+    setShowOrderSuggestions(false);
+    setFilteredOrders([]);
+    setOrderValidation({ isValid: true, message: "✅ Commande sélectionnée" });
   };
 
   const sendMessage = async (e) => {
@@ -357,22 +420,96 @@ export default function Support() {
                   }}
                 />
               </div>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16, position: "relative" }}>
                 <label style={{ display: "block", marginBottom: 4, fontWeight: "bold" }}>
                   Commande (optionnel)
                 </label>
-                <input
-                  type="text"
-                  value={newThread.order_id}
-                  onChange={(e) => setNewThread({ ...newThread, order_id: e.target.value })}
-                  placeholder="ID de la commande concernée..."
-                  style={{
-                    width: "100%",
-                    padding: 8,
-                    border: "1px solid #ddd",
-                    borderRadius: 4,
-                  }}
-                />
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={newThread.order_id}
+                    onChange={(e) => handleOrderIdChange(e.target.value)}
+                    onFocus={() => {
+                      if (newThread.order_id.trim()) {
+                        handleOrderIdChange(newThread.order_id);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Délai pour permettre le clic sur une suggestion
+                      setTimeout(() => setShowOrderSuggestions(false), 200);
+                    }}
+                    placeholder="ID de la commande concernée..."
+                    style={{
+                      width: "100%",
+                      padding: 8,
+                      border: orderValidation.isValid === false ? "1px solid #dc3545" : 
+                              orderValidation.isValid === true ? "1px solid #28a745" : "1px solid #ddd",
+                      borderRadius: 4,
+                    }}
+                  />
+                  {showOrderSuggestions && filteredOrders.length > 0 && (
+                    <div style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "white",
+                      border: "1px solid #ddd",
+                      borderTop: "none",
+                      borderRadius: "0 0 4px 4px",
+                      maxHeight: 200,
+                      overflowY: "auto",
+                      zIndex: 1000,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                    }}>
+                      {filteredOrders.slice(0, 5).map((order) => (
+                        <div
+                          key={order.id}
+                          onClick={() => selectOrder(order.id)}
+                          style={{
+                            padding: "8px 12px",
+                            cursor: "pointer",
+                            borderBottom: "1px solid #f0f0f0",
+                            fontSize: 12,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.background = "#f8f9fa";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.background = "white";
+                          }}
+                        >
+                          <div style={{ fontWeight: "bold", color: "#007bff" }}>
+                            Commande #{order.id.slice(-8)}
+                          </div>
+                          <div style={{ color: "#666", fontSize: 11 }}>
+                            {order.status} • {new Date(order.created_at * 1000).toLocaleDateString("fr-FR")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {orderValidation.message && (
+                  <div style={{ 
+                    fontSize: 11, 
+                    color: orderValidation.isValid ? "#28a745" : "#dc3545", 
+                    marginTop: 4,
+                    fontWeight: "bold"
+                  }}>
+                    {orderValidation.message}
+                  </div>
+                )}
+                {!orderValidation.message && userOrders.length > 0 && (
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                    💡 Tapez pour rechercher parmi vos {userOrders.length} commande(s)
+                  </div>
+                )}
+                {!orderValidation.message && userOrders.length === 0 && (
+                  <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
+                    ℹ️ Aucune commande trouvée. Créez d'abord une commande pour utiliser l'autocomplétion.
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button
