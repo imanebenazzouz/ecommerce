@@ -12,9 +12,31 @@ export default function Login() {
     return /\S+@\S+\.\S+/.test(x);
   }
 
+  // Fonction pour synchroniser le panier local avec le serveur
+  async function syncLocalCartToServer() {
+    try {
+      const localCartData = localStorage.getItem('localCart');
+      if (localCartData) {
+        const localCart = JSON.parse(localCartData);
+        const items = Object.values(localCart.items || {});
+        
+        // Ajouter chaque article du panier local au panier serveur
+        for (const item of items) {
+          await api.addToCart({ product_id: item.product_id, qty: item.quantity });
+        }
+        
+        // Vider le panier local après synchronisation
+        localStorage.removeItem('localCart');
+      }
+    } catch (error) {
+      console.warn("Erreur lors de la synchronisation du panier:", error);
+      // Ne pas bloquer la connexion si la synchronisation échoue
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!isEmail(email)) return setError("Format d’email invalide");
+    if (!isEmail(email)) return setError("Format d'email invalide");
     if (!pwd) return setError("Mot de passe obligatoire");
 
     setError("");
@@ -28,7 +50,10 @@ export default function Login() {
       localStorage.setItem("token", token);
       localStorage.setItem("role", user?.is_admin ? "admin" : "user");
 
-      // ✅ Redirection vers la page d’accueil
+      // Synchroniser le panier local avec le serveur
+      await syncLocalCartToServer();
+
+      // ✅ Redirection vers la page d'accueil
       location.href = "/";
     } catch (err) {
       console.error("Erreur login:", err);

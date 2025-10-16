@@ -20,7 +20,8 @@ export default function Register() {
         email: form.email, password: form.password,
         first_name: form.first_name, last_name: form.last_name, address: form.address,
       });
-      setOk("Compte créé ✅ — connecte-toi"); setForm({ email:"", password:"", confirm:"", first_name:"", last_name:"", address:"" });
+      setOk("Compte créé ✅ — connecte-toi maintenant pour synchroniser votre panier"); 
+      setForm({ email:"", password:"", confirm:"", first_name:"", last_name:"", address:"" });
     } catch(e){ 
       let errorMessage = "Erreur lors de l'inscription, veuillez réessayer.";
       

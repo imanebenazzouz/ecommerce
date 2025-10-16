@@ -1,8 +1,10 @@
 // src/pages/Cart.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Cart() {
+  const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState(null);
   const [products, setProducts] = useState([]);
   const [orderId, setOrderId] = useState(null);
@@ -13,14 +15,39 @@ export default function Cart() {
   useEffect(() => {
     (async () => {
       try {
-        const [c, ps] = await Promise.all([api.getCart(), api.listProducts()]);
-        setCart(c);
+        const ps = await api.listProducts();
         setProducts(ps);
+
+        if (isAuthenticated()) {
+          // Utilisateur connecté : récupérer le panier du serveur
+          const c = await api.getCart();
+          setCart(c);
+        } else {
+          // Utilisateur non connecté : récupérer le panier local
+          const localCart = getLocalCart();
+          setCart(localCart);
+        }
       } catch (e) {
         setErr(e.message);
+        if (e.status === 401) {
+          // En cas d'erreur 401, basculer sur le panier local
+          const localCart = getLocalCart();
+          setCart(localCart);
+        }
       }
     })();
-  }, []);
+  }, [isAuthenticated]);
+
+  // Fonction pour récupérer le panier local
+  function getLocalCart() {
+    const localCartData = localStorage.getItem('localCart');
+    return localCartData ? JSON.parse(localCartData) : { items: {} };
+  }
+
+  // Fonction pour sauvegarder le panier local
+  function saveLocalCart(cartData) {
+    localStorage.setItem('localCart', JSON.stringify(cartData));
+  }
 
   // Maps utiles
   const priceById = useMemo(() => {
@@ -49,8 +76,13 @@ export default function Cart() {
 
   async function reload() {
     try {
-      const c = await api.getCart();
-      setCart(c);
+      if (isAuthenticated()) {
+        const c = await api.getCart();
+        setCart(c);
+      } else {
+        const localCart = getLocalCart();
+        setCart(localCart);
+      }
     } catch (e) {
       setErr(e.message);
     }
@@ -60,8 +92,21 @@ export default function Cart() {
   async function inc(product_id) {
     setErr(""); setMsg(""); setPending(true);
     try {
-      await api.addToCart({ product_id, qty: 1 });
-      await reload();
+      if (isAuthenticated()) {
+        await api.addToCart({ product_id, qty: 1 });
+        await reload();
+      } else {
+        // Gestion du panier local
+        const localCart = getLocalCart();
+        const existingItem = localCart.items[product_id];
+        if (existingItem) {
+          localCart.items[product_id].quantity += 1;
+        } else {
+          localCart.items[product_id] = { product_id, quantity: 1 };
+        }
+        saveLocalCart(localCart);
+        setCart(localCart);
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -72,8 +117,19 @@ export default function Cart() {
   async function dec(product_id) {
     setErr(""); setMsg(""); setPending(true);
     try {
-      await api.removeFromCart({ product_id, qty: 1 });
-      await reload();
+      if (isAuthenticated()) {
+        await api.removeFromCart({ product_id, qty: 1 });
+        await reload();
+      } else {
+        // Gestion du panier local
+        const localCart = getLocalCart();
+        const existingItem = localCart.items[product_id];
+        if (existingItem && existingItem.quantity > 1) {
+          localCart.items[product_id].quantity -= 1;
+          saveLocalCart(localCart);
+          setCart(localCart);
+        }
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -84,9 +140,17 @@ export default function Cart() {
   async function removeAll(product_id) {
     setErr(""); setMsg(""); setPending(true);
     try {
-      // qty: 0 = supprimer l’article entièrement (supporté par ton API)
-      await api.removeFromCart({ product_id, qty: 0 });
-      await reload();
+      if (isAuthenticated()) {
+        // qty: 0 = supprimer l'article entièrement (supporté par ton API)
+        await api.removeFromCart({ product_id, qty: 0 });
+        await reload();
+      } else {
+        // Gestion du panier local
+        const localCart = getLocalCart();
+        delete localCart.items[product_id];
+        saveLocalCart(localCart);
+        setCart(localCart);
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -99,9 +163,16 @@ export default function Cart() {
     if (items.length === 0) return;
     setErr(""); setMsg(""); setPending(true);
     try {
-      // supprime chaque article (qty=0) en parallèle
-      await Promise.all(items.map(it => api.removeFromCart({ product_id: it.product_id, qty: 0 })));
-      await reload();
+      if (isAuthenticated()) {
+        // supprime chaque article (qty=0) en parallèle
+        await Promise.all(items.map(it => api.removeFromCart({ product_id: it.product_id, qty: 0 })));
+        await reload();
+      } else {
+        // Gestion du panier local
+        const emptyCart = { items: {} };
+        saveLocalCart(emptyCart);
+        setCart(emptyCart);
+      }
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -111,6 +182,13 @@ export default function Cart() {
 
   async function checkout() {
     setErr(""); setMsg("");
+    
+    // Vérification d'authentification avant le paiement
+    if (!isAuthenticated()) {
+      setErr("Vous devez être connecté pour passer commande. Veuillez vous connecter ou créer un compte.");
+      return;
+    }
+
     try {
       const res = await api.checkout();
       setOrderId(res.order_id);
@@ -138,13 +216,31 @@ export default function Cart() {
     }
   }
 
-  if (!cart) return <p style={{ padding: 40 }}>Chargement…</p>;
+  if (!cart && !err) return <p style={{ padding: 40 }}>Chargement…</p>;
 
   return (
     <div style={{ padding: 40 }}>
       <h2>Mon panier</h2>
       {err && <p style={{ color: "tomato", fontWeight: 600 }}>{err}</p>}
       {msg && <p style={{ color: "green", fontWeight: 600 }}>{msg}</p>}
+      
+      {/* Message d'information pour les utilisateurs non connectés */}
+      {!isAuthenticated() && items.length > 0 && (
+        <div style={{ 
+          backgroundColor: "#f0f9ff", 
+          border: "1px solid #0ea5e9", 
+          borderRadius: 8, 
+          padding: 16, 
+          marginBottom: 20 
+        }}>
+          <p style={{ margin: 0, color: "#0c4a6e", fontWeight: 600 }}>
+            ℹ️ Vous n'êtes pas connecté
+          </p>
+          <p style={{ margin: "8px 0 0 0", color: "#0c4a6e", fontSize: 14 }}>
+            Vous pouvez modifier votre panier, mais vous devrez vous connecter ou créer un compte pour passer commande.
+          </p>
+        </div>
+      )}
 
       {items.length === 0 ? (
         <p>Panier vide.</p>
@@ -220,13 +316,56 @@ export default function Cart() {
           </div>
 
           {!orderId ? (
-            <button
-              onClick={checkout}
-              disabled={pending}
-              style={{ ...btnPrimary, marginTop: 12 }}
-            >
-              Passer au paiement
-            </button>
+            <div style={{ marginTop: 12 }}>
+              {isAuthenticated() ? (
+                <button
+                  onClick={checkout}
+                  disabled={pending}
+                  style={{ ...btnPrimary }}
+                >
+                  Passer au paiement
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <button
+                    onClick={checkout}
+                    disabled={pending}
+                    style={{ 
+                      ...btnPrimary, 
+                      backgroundColor: "#dc2626",
+                      opacity: 0.8
+                    }}
+                    title="Vous devez être connecté pour passer commande"
+                  >
+                    🔒 Connexion requise pour le paiement
+                  </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <a 
+                      href="/login" 
+                      style={{ 
+                        ...btnPrimary, 
+                        backgroundColor: "#059669",
+                        textDecoration: "none",
+                        display: "inline-block"
+                      }}
+                    >
+                      Se connecter
+                    </a>
+                    <a 
+                      href="/register" 
+                      style={{ 
+                        ...btnPrimary, 
+                        backgroundColor: "#7c3aed",
+                        textDecoration: "none",
+                        display: "inline-block"
+                      }}
+                    >
+                      Créer un compte
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <form onSubmit={pay} style={{ marginTop: 16, maxWidth: 360 }}>
               <h3>Paiement par carte</h3>

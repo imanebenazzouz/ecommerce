@@ -1,9 +1,11 @@
 // src/pages/Catalog.jsx
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
 import "../styles/catalog.css";
 
 export default function Catalog() {
+  const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -23,11 +25,28 @@ export default function Catalog() {
     setMsg("");
     setErr("");
     try {
-      await api.addToCart({ product_id: p.id, qty: 1 });
-      setMsg(`✅ ${p.name} ajouté au panier`);
+      if (isAuthenticated()) {
+        // Utilisateur connecté : ajouter au panier serveur
+        await api.addToCart({ product_id: p.id, qty: 1 });
+        setMsg(`✅ ${p.name} ajouté au panier`);
+      } else {
+        // Utilisateur non connecté : ajouter au panier local
+        const localCartData = localStorage.getItem('localCart');
+        const localCart = localCartData ? JSON.parse(localCartData) : { items: {} };
+        
+        const existingItem = localCart.items[p.id];
+        if (existingItem) {
+          localCart.items[p.id].quantity += 1;
+        } else {
+          localCart.items[p.id] = { product_id: p.id, quantity: 1 };
+        }
+        
+        localStorage.setItem('localCart', JSON.stringify(localCart));
+        setMsg(`✅ ${p.name} ajouté au panier (local)`);
+      }
     } catch (e) {
       if (e.message.startsWith("HTTP 401"))
-        setErr("Connecte-toi d’abord (menu Connexion).");
+        setErr("Erreur de connexion. Vérifiez votre authentification.");
       else setErr(e.message);
     }
   }

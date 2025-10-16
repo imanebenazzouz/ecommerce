@@ -1,6 +1,7 @@
 // src/App.jsx
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -9,8 +10,8 @@ import Admin from "./pages/Admin";
 import Profile from "./pages/Profile"; // ✅ AJOUT
 import "./styles/global.css";
 
-export default function App() {
-  // États locaux pour l’authentification et le rôle
+function AppContent() {
+  // États locaux pour l'authentification et le rôle
   const [isAuth, setIsAuth] = useState(() => !!localStorage.getItem("token"));
   const [role, setRole] = useState(() => localStorage.getItem("role"));
 
@@ -103,5 +104,13 @@ export default function App() {
         <Route path="/admin" element={<Admin />} />
       </Routes>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
