@@ -19,7 +19,7 @@ Host: localhost
 Port: 5432
 Database: ecommerce
 User: ecommerce
-Password: ecommerce_secure_2024
+Password: [Voir config.env.production]
 ```
 
 ### Méthodes d'accès
@@ -39,7 +39,7 @@ docker exec -it ecommerce-postgres-prod psql -U ecommerce -d ecommerce
 - Port: 5432
 - Database: ecommerce
 - Username: ecommerce
-- Password: ecommerce_secure_2024
+- Password: [Voir config.env.production]
 
 ### Commandes utiles
 
@@ -80,7 +80,7 @@ SELECT COUNT(*) as total_orders FROM orders;
 ### Grafana (dashboards)
 - URL: http://localhost:3001
 - Login: admin
-- Password: admin_secure_2024
+- Password: [Voir config.env.production]
 
 ### Logs de l'application
 ```bash
