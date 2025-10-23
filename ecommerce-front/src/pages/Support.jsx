@@ -1,10 +1,10 @@
 // src/pages/Support.jsx
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Support() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [threads, setThreads] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
   const [newMessage, setNewMessage] = useState("");

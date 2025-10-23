@@ -1551,6 +1551,12 @@ button[onclick*="Logout"] {
   font-weight: 500;
 }
 
+/* Animation de rotation pour le spinner */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* Enhanced Error States */
 .error-boundary {
   display: flex;

@@ -1,10 +1,10 @@
 // src/pages/AdminSupport.jsx
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function AdminSupport() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [threads, setThreads] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
   const [newMessage, setNewMessage] = useState("");
@@ -14,18 +14,21 @@ export default function AdminSupport() {
 
   // Charger les threads au montage
   useEffect(() => {
-    loadThreads();
-  }, []);
+    if (isAuthenticated() && user?.is_admin) {
+      loadThreads();
+    }
+  }, [isAuthenticated, user]);
 
   const loadThreads = async () => {
     try {
       setLoading(true);
-      const data = await api.adminListSupportThreads();
-      setThreads(data);
       setError(null);
+      const data = await api.adminListSupportThreads();
+      setThreads(data || []);
     } catch (err) {
-      setError("Erreur lors du chargement des fils de discussion");
-      console.error(err);
+      // Erreur chargement threads
+      setError(`Erreur lors du chargement des fils de discussion: ${err.message || "Erreur inconnue"}`);
+      setThreads([]);
     } finally {
       setLoading(false);
     }
@@ -33,11 +36,13 @@ export default function AdminSupport() {
 
   const loadThread = async (threadId) => {
     try {
+      setError(null);
       const data = await api.adminGetSupportThread(threadId);
       setSelectedThread(data);
     } catch (err) {
-      setError("Erreur lors du chargement du fil");
-      console.error(err);
+      // Erreur chargement thread
+      setError(`Erreur lors du chargement du fil: ${err.message || "Erreur inconnue"}`);
+      setSelectedThread(null);
     }
   };
 
@@ -46,21 +51,21 @@ export default function AdminSupport() {
     if (!newMessage.trim() || !selectedThread) return;
 
     try {
+      setError(null);
       const data = await api.adminPostSupportMessage(selectedThread.id, {
-        content: newMessage,
+        content: newMessage.trim(),
       });
       
       // Mettre à jour le thread avec le nouveau message
       const updatedThread = {
         ...selectedThread,
-        messages: [...selectedThread.messages, data],
+        messages: [...(selectedThread.messages || []), data],
       };
       setSelectedThread(updatedThread);
       setNewMessage("");
-      setError(null);
     } catch (err) {
-      setError("Erreur lors de l'envoi du message");
-      console.error(err);
+      // Erreur envoi message
+      setError(`Erreur lors de l'envoi du message: ${err.message || "Erreur inconnue"}`);
     }
   };
 
@@ -68,15 +73,15 @@ export default function AdminSupport() {
     if (!confirm("Êtes-vous sûr de vouloir fermer ce fil de discussion ?")) return;
 
     try {
+      setError(null);
       await api.adminCloseSupportThread(threadId);
       await loadThreads(); // Recharger la liste
       if (selectedThread?.id === threadId) {
         setSelectedThread(null);
       }
-      setError(null);
     } catch (err) {
-      setError("Erreur lors de la fermeture du fil");
-      console.error(err);
+      // Erreur fermeture thread
+      setError(`Erreur lors de la fermeture du fil: ${err.message || "Erreur inconnue"}`);
     }
   };
 
@@ -91,12 +96,28 @@ export default function AdminSupport() {
     return true;
   });
 
+
   // Vérifier l'authentification et les droits admin
+  if (authLoading) {
+    return (
+      <div style={{ textAlign: "center", padding: 40 }}>
+        <h2>Chargement...</h2>
+        <p>Vérification de l'authentification...</p>
+      </div>
+    );
+  }
+
   if (!isAuthenticated()) {
     return (
       <div style={{ textAlign: "center", padding: 40 }}>
         <h2>Accès refusé</h2>
         <p>Vous devez être connecté pour accéder au support admin.</p>
+        <div style={{ marginTop: 20, padding: 10, background: '#f0f0f0', borderRadius: 5 }}>
+          <strong>Debug:</strong><br/>
+          Auth Loading: {authLoading.toString()}<br/>
+          Is Authenticated: {isAuthenticated().toString()}<br/>
+          User: {user ? JSON.stringify(user) : 'null'}
+        </div>
       </div>
     );
   }
@@ -106,12 +127,22 @@ export default function AdminSupport() {
       <div style={{ textAlign: "center", padding: 40 }}>
         <h2>Accès refusé</h2>
         <p>Seuls les administrateurs peuvent accéder à cette page.</p>
+        <div style={{ marginTop: 20, padding: 10, background: '#f0f0f0', borderRadius: 5 }}>
+          <strong>Debug:</strong><br/>
+          User: {JSON.stringify(user)}<br/>
+          Is Admin: {user?.is_admin?.toString()}
+        </div>
       </div>
     );
   }
 
   if (loading) {
-    return <div>Chargement des fils de discussion...</div>;
+    return (
+      <div style={{ textAlign: "center", padding: 40 }}>
+        <h2>Chargement des fils de discussion...</h2>
+        <p>Veuillez patienter...</p>
+      </div>
+    );
   }
 
   return (
@@ -201,7 +232,7 @@ export default function AdminSupport() {
                     {thread.subject}
                   </div>
                   <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                    Client: {thread.user_id.slice(-8)} • {thread.messages.length} message(s)
+                    Client: {thread.user_id.slice(-8)} • {(thread.messages || []).length} message(s)
                   </div>
                   <div style={{ fontSize: 12, color: "#666" }}>
                     {thread.order_id ? `Commande #${thread.order_id.slice(-8)}` : "Demande générale"}
@@ -249,13 +280,13 @@ export default function AdminSupport() {
 
               {/* Messages */}
               <div style={{ flex: 1, padding: 16, overflowY: "auto", maxHeight: 400 }}>
-                {selectedThread.messages.length === 0 ? (
+                {(selectedThread.messages || []).length === 0 ? (
                   <p style={{ color: "#666", textAlign: "center" }}>
                     Aucun message dans cette conversation
                   </p>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {selectedThread.messages.map((message) => (
+                    {(selectedThread.messages || []).map((message) => (
                       <div
                         key={message.id}
                         style={{

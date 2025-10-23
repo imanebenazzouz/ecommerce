@@ -50,9 +50,11 @@ export default function Admin() {
     setErr("");
     try {
       const data = await api.adminListProducts();
-      setItems(data);
+      setItems(data || []);
     } catch (e) {
+      console.error("Erreur chargement produits:", e);
       setErr(e.message || "Impossible de charger les produits.");
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -67,9 +69,11 @@ export default function Admin() {
     try {
       const params = userId ? { user_id: userId } : {};
       const data = await api.adminListOrders(params);
-      setOrders(data);
+      setOrders(data || []);
     } catch (e) {
+      console.error("Erreur chargement commandes:", e);
       setErr(e.message || "Impossible de charger les commandes.");
+      setOrders([]);
     } finally {
       setOrdersLoading(false);
     }
@@ -96,6 +100,20 @@ export default function Admin() {
     e.preventDefault();
     setErr(""); setMsg("");
     try {
+      // Validation côté client
+      if (!form.name.trim()) {
+        setErr("Le nom du produit est obligatoire");
+        return;
+      }
+      if (eurToCents(form.price_eur) < 0) {
+        setErr("Le prix ne peut pas être négatif");
+        return;
+      }
+      if (Number(form.stock_qty || 0) < 0) {
+        setErr("Le stock ne peut pas être négatif");
+        return;
+      }
+
       const body = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -103,12 +121,13 @@ export default function Admin() {
         stock_qty: Number(form.stock_qty || 0),
         active: !!form.active,
       };
-      if (!body.name) throw new Error("Nom obligatoire");
+      
       const created = await api.adminCreateProduct(body);
       setMsg(`✅ Produit créé : ${created.name}`);
       setForm({ name: "", description: "", price_eur: "", stock_qty: "", active: true });
       await load();
     } catch (e) {
+      console.error("Erreur création produit:", e);
       setErr(e.message || "Erreur lors de la création.");
     }
   }
@@ -116,6 +135,20 @@ export default function Admin() {
   async function handleUpdate(id, patch) {
     setErr(""); setMsg("");
     try {
+      // Validation côté client
+      if (patch.name !== undefined && !patch.name.trim()) {
+        setErr("Le nom du produit ne peut pas être vide");
+        return;
+      }
+      if (patch.price_eur !== undefined && eurToCents(patch.price_eur) < 0) {
+        setErr("Le prix ne peut pas être négatif");
+        return;
+      }
+      if (patch.stock_qty !== undefined && Number(patch.stock_qty) < 0) {
+        setErr("Le stock ne peut pas être négatif");
+        return;
+      }
+
       // On convertit si besoin
       const b = { ...patch };
       if (Object.prototype.hasOwnProperty.call(b, "price_eur")) {
@@ -129,6 +162,7 @@ export default function Admin() {
       setMsg(`✅ Modifié : ${updated.name}`);
       await load();
     } catch (e) {
+      console.error("Erreur mise à jour produit:", e);
       setErr(e.message || "Erreur de mise à jour.");
     }
   }
@@ -141,6 +175,7 @@ export default function Admin() {
       setMsg("🗑️ Produit supprimé");
       await load();
     } catch (e) {
+      console.error("Erreur suppression produit:", e);
       setErr(e.message || "Erreur de suppression.");
     }
   }
@@ -462,11 +497,19 @@ export default function Admin() {
                         <button 
                           onClick={async () => {
                             try {
+                              setErr(""); // Effacer les erreurs précédentes
                               await api.adminShipOrder(order.id);
                               setMsg(`✅ Commande ${order.id.slice(-8)} expédiée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
-                              setErr(e.message);
+                              console.error("Erreur expédition:", e);
+                              if (e.status === 422) {
+                                setErr(`Erreur de validation: ${e.message}`);
+                              } else if (e.status === 400) {
+                                setErr(`Erreur de statut: ${e.message}`);
+                              } else {
+                                setErr(`Erreur d'expédition: ${e.message}`);
+                              }
                             }
                           }}
                           style={{ ...primaryBtn, fontSize: 12, padding: "4px 8px" }}

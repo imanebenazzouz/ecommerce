@@ -102,5 +102,53 @@
     "created_at": 1760628636.089951,
     "idempotency_key": "e27fa93b-6e06-4f93-9432-441e73b1bd29_1760628636081_reo1run5x",
     "card_last4": "1212"
+  },
+  "738d48b0-f891-4e22-a368-c731b00e2279": {
+    "id": "738d48b0-f891-4e22-a368-c731b00e2279",
+    "order_id": "34b69403-faa8-4dd6-b27d-3795eb0b2de5",
+    "user_id": "454f82b0-974d-48c3-af87-1a5a6b62bb2f",
+    "amount_cents": 1999,
+    "provider": "CB",
+    "provider_ref": "dff9d9de-5151-4407-8bfc-6eb78879cd0b",
+    "succeeded": true,
+    "created_at": 1760981849.20109,
+    "idempotency_key": "34b69403-faa8-4dd6-b27d-3795eb0b2de5_1760981849",
+    "card_last4": "4242"
+  },
+  "7195476d-993b-448e-a29e-c00e0de738cd": {
+    "id": "7195476d-993b-448e-a29e-c00e0de738cd",
+    "order_id": "49ee9df2-dd00-4859-b4b3-042e385e2ee6",
+    "user_id": "0c0a047b-53f8-4673-99ab-78bd5d389555",
+    "amount_cents": 2999,
+    "provider": "CB",
+    "provider_ref": "1482e88d-1f28-4c91-9692-adf710d81294",
+    "succeeded": true,
+    "created_at": 1760982278.2474618,
+    "idempotency_key": "49ee9df2-dd00-4859-b4b3-042e385e2ee6_1760982278231_fjr1x0b9d",
+    "card_last4": "1234"
+  },
+  "e7a92417-6e49-4c41-9d6d-21f138435b3b": {
+    "id": "e7a92417-6e49-4c41-9d6d-21f138435b3b",
+    "order_id": "6cd66c5b-6f7e-461d-9d34-6708ea014a8b",
+    "user_id": "0c0a047b-53f8-4673-99ab-78bd5d389555",
+    "amount_cents": 101976,
+    "provider": "CB",
+    "provider_ref": null,
+    "succeeded": false,
+    "created_at": 1760982571.1744409,
+    "idempotency_key": "6cd66c5b-6f7e-461d-9d34-6708ea014a8b_1760982571159_yyyoiccdx",
+    "card_last4": "0000"
+  },
+  "82474e92-ac5d-4403-8768-056081db2a85": {
+    "id": "82474e92-ac5d-4403-8768-056081db2a85",
+    "order_id": "6cd66c5b-6f7e-461d-9d34-6708ea014a8b",
+    "user_id": "0c0a047b-53f8-4673-99ab-78bd5d389555",
+    "amount_cents": 101976,
+    "provider": "CB",
+    "provider_ref": "bd4f4d05-19ae-4127-8c6b-a9e3bea84173",
+    "succeeded": true,
+    "created_at": 1760982576.642432,
+    "idempotency_key": "6cd66c5b-6f7e-461d-9d34-6708ea014a8b_1760982576625_crgl1u8nk",
+    "card_last4": "1222"
   }
 }

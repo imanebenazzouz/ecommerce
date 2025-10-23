@@ -1,5 +1,5 @@
 // src/lib/api.js
-const API = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
 // --- Token helpers ---
 function getToken() {
@@ -34,9 +34,26 @@ async function request(path, init = {}) {
   }
 
   if (!res.ok) {
-    const msg = (payload && (payload.detail || payload.message)) || payload || `HTTP ${res.status}`;
-    const err = new Error(typeof msg === "string" ? msg : `HTTP ${res.status}`);
+    let msg;
+    if (payload) {
+      if (typeof payload === "string") {
+        msg = payload;
+      } else if (payload.detail) {
+        msg = payload.detail;
+      } else if (payload.message) {
+        msg = payload.message;
+      } else if (payload.error) {
+        msg = payload.error;
+      } else {
+        msg = `Erreur ${res.status}: ${JSON.stringify(payload)}`;
+      }
+    } else {
+      msg = `Erreur HTTP ${res.status}`;
+    }
+    
+    const err = new Error(msg);
     err.status = res.status;
+    err.payload = payload;
     throw err;
   }
   return payload;
@@ -56,15 +73,25 @@ async function register({ email, password, first_name, last_name, address }) {
 
 // POST /auth/login → { token }  (+ /auth/me pour le rôle)
 async function login({ email, password }) {
-  const { token } = await request("/auth/login", {
+  const response = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  
+  // Le backend retourne { token }
+  const token = response.token;
   setToken(token);
 
   // récupère l'utilisateur courant (contient is_admin)
   let user = null;
-  try { user = await me(); } catch {}
+  try { 
+    user = await me(); 
+  } catch (error) {
+    console.warn('Erreur lors de la récupération des données utilisateur:', error);
+    // Si on ne peut pas récupérer l'utilisateur, on déconnecte
+    setToken(null);
+    throw new Error('Erreur d\'authentification');
+  }
   return { token, user };
 }
 
@@ -100,6 +127,10 @@ async function listProducts() {
   return request("/products");
 }
 
+async function getProduct(productId) {
+  return request(`/products/${productId}`);
+}
+
 /* =========================
    PANIER & COMMANDES (user)
    ========================= */
@@ -120,6 +151,10 @@ async function addToCart({ product_id, qty = 1 }) {
 // POST /cart/remove  { product_id, qty }
 async function removeFromCart({ product_id, qty = 1 }) {
   return request("/cart/remove", { method: "POST", body: JSON.stringify({ product_id, qty }) });
+}
+
+async function clearCart() {
+  return request("/cart/clear", { method: "POST" });
 }
 
 // POST /orders/checkout  → { order_id, total_cents, status }
@@ -191,11 +226,16 @@ async function getOrderTracking(orderId) {
   return request(`/orders/${orderId}/tracking`);
 }
 
-// POST /payments (nouveau système avec idempotence)
-async function processPayment({ orderId, cardLast4, idempotencyKey }) {
-  return request("/payments", {
+// POST /orders/{order_id}/pay (système de paiement)
+async function processPayment({ orderId, cardNumber, expMonth, expYear, cvc }) {
+  return request(`/orders/${orderId}/pay`, {
     method: "POST",
-    body: JSON.stringify({ order_id: orderId, card_last4: cardLast4, idempotency_key: idempotencyKey }),
+    body: JSON.stringify({ 
+      card_number: cardNumber, 
+      exp_month: expMonth, 
+      exp_year: expYear, 
+      cvc: cvc 
+    }),
   });
 }
 
@@ -238,14 +278,30 @@ async function adminGetOrder(orderId) {
   return request(`/admin/orders/${orderId}`);
 }
 
+// GET /admin/orders/:id/status
+async function adminGetOrderStatus(orderId) {
+  return request(`/admin/orders/${orderId}/status`);
+}
+
 // POST /admin/orders/:id/validate
 async function adminValidateOrder(order_id) {
   return request(`/admin/orders/${order_id}/validate`, { method: "POST" });
 }
 
 // POST /admin/orders/:id/ship
-async function adminShipOrder(order_id) {
-  return request(`/admin/orders/${order_id}/ship`, { method: "POST" });
+async function adminShipOrder(order_id, delivery_data = {}) {
+  // Données par défaut pour l'expédition
+  const defaultDeliveryData = {
+    transporteur: "Colissimo",
+    tracking_number: null,
+    delivery_status: "PREPAREE",
+    ...delivery_data
+  };
+  
+  return request(`/admin/orders/${order_id}/ship`, { 
+    method: "POST", 
+    body: JSON.stringify(defaultDeliveryData) 
+  });
 }
 
 // POST /admin/orders/:id/mark-delivered
@@ -299,25 +355,57 @@ async function markSupportThreadAsRead(threadId) {
 
 // GET /admin/support/threads
 async function adminListSupportThreads() {
-  return request("/admin/support/threads");
+  try {
+    return await request("/admin/support/threads");
+  } catch (error) {
+    // Erreur adminListSupportThreads
+    throw new Error(`Erreur lors du chargement des fils de discussion: ${error.message || "Erreur inconnue"}`);
+  }
 }
 
 // GET /admin/support/threads/:id
 async function adminGetSupportThread(threadId) {
-  return request(`/admin/support/threads/${threadId}`);
+  try {
+    if (!threadId) {
+      throw new Error("ID du fil de discussion manquant");
+    }
+    return await request(`/admin/support/threads/${threadId}`);
+  } catch (error) {
+    // Erreur adminGetSupportThread
+    throw new Error(`Erreur lors du chargement du fil: ${error.message || "Erreur inconnue"}`);
+  }
 }
 
 // POST /admin/support/threads/:id/close
 async function adminCloseSupportThread(threadId) {
-  return request(`/admin/support/threads/${threadId}/close`, { method: "POST" });
+  try {
+    if (!threadId) {
+      throw new Error("ID du fil de discussion manquant");
+    }
+    return await request(`/admin/support/threads/${threadId}/close`, { method: "POST" });
+  } catch (error) {
+    // Erreur adminCloseSupportThread
+    throw new Error(`Erreur lors de la fermeture du fil: ${error.message || "Erreur inconnue"}`);
+  }
 }
 
 // POST /admin/support/threads/:id/messages { content }
 async function adminPostSupportMessage(threadId, { content }) {
-  return request(`/admin/support/threads/${threadId}/messages`, {
-    method: "POST",
-    body: JSON.stringify({ content }),
-  });
+  try {
+    if (!threadId) {
+      throw new Error("ID du fil de discussion manquant");
+    }
+    if (!content || !content.trim()) {
+      throw new Error("Le contenu du message ne peut pas être vide");
+    }
+    return await request(`/admin/support/threads/${threadId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ content: content.trim() }),
+    });
+  } catch (error) {
+    // Erreur adminPostSupportMessage
+    throw new Error(`Erreur lors de l'envoi du message: ${error.message || "Erreur inconnue"}`);
+  }
 }
 
 export const api = {
@@ -325,9 +413,9 @@ export const api = {
   register, login, logout, me, updateProfile, setToken,
 
   // Catalogue / Panier / Commandes (user)
-  listProducts,
+  listProducts, getProduct,
   viewCart, getCart,
-  addToCart, removeFromCart,
+  addToCart, removeFromCart, clearCart,
   checkout,
   payOrder, payByCard, processPayment,
   myOrders, getOrders, getOrder, cancelOrder,
@@ -342,6 +430,7 @@ export const api = {
   // Admin Commandes
   adminListOrders,
   adminGetOrder,
+  adminGetOrderStatus,
   adminValidateOrder,
   adminShipOrder,
   adminMarkDelivered,

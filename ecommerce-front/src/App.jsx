@@ -1,7 +1,9 @@
 // src/App.jsx
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthProvider";
+import { useAuth } from "./hooks/useAuth";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -13,10 +15,11 @@ import OrderDetail from "./pages/OrderDetail";
 import AdminOrderDetail from "./pages/AdminOrderDetail";
 import Support from "./pages/Support";
 import AdminSupport from "./pages/AdminSupport";
+import SupportTest from "./pages/SupportTest";
 import "./styles/global.css";
 
 function AppContent() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading } = useAuth();
   const [role, setRole] = useState(() => localStorage.getItem("role"));
 
   // Synchronise le rôle quand l'utilisateur change
@@ -39,6 +42,16 @@ function AppContent() {
 
   const isAuth = isAuthenticated();
 
+  // Afficher un indicateur de chargement pendant la vérification de l'authentification
+  if (loading) {
+    return (
+      <div style={{ padding: 40, fontFamily: "Arial, sans-serif", textAlign: "center" }}>
+        <h2>Chargement...</h2>
+        <p>Vérification de votre authentification...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 40, fontFamily: "Arial, sans-serif" }}>
       <nav
@@ -48,55 +61,63 @@ function AppContent() {
           gap: 16,
           alignItems: "center",
           flexWrap: "wrap",
+          borderBottom: "1px solid #e5e7eb",
+          paddingBottom: 16,
         }}
       >
-        <Link to="/">Accueil</Link>
-        <Link to="/cart">Panier</Link>
+        {/* Navigation principale */}
+        <Link to="/" style={{ fontWeight: "bold", color: "#1f2937" }}>🏠 Accueil</Link>
+        <Link to="/cart">🛒 Panier</Link>
 
-        {/* ✅ Lien Profil visible UNIQUEMENT si connecté (user ou admin) */}
-        {isAuth && <Link to="/profile">Mon profil</Link>}
-        
-        {/* ✅ Lien Support visible UNIQUEMENT si connecté */}
-        {isAuth && <Link to="/support">Support</Link>}
-
-        {/* ✅ Si admin connecté, affiche lien Admin */}
-        {role === "admin" && (
-          <>
-            <Link to="/admin">Admin</Link>
-            <Link to="/admin/support">Support Admin</Link>
-          </>
-        )}
-
-        {/* ✅ Si pas connecté → Connexion / Inscription */}
-        {!isAuth && (
-          <>
-            <Link to="/login">Connexion</Link>
-            <Link to="/register">Inscription</Link>
-          </>
-        )}
-
-        {/* ✅ Si connecté → affichage rôle + bouton Déconnexion */}
+        {/* Navigation pour utilisateurs connectés */}
         {isAuth && (
           <>
-            <Link to="/orders">Mes commandes</Link>
-            <span style={{ color: "#555" }}>
-              Connecté ({role === "admin" ? "admin" : "client"})
+            <Link to="/profile">👤 Mon profil</Link>
+            <Link to="/orders">📦 Mes commandes</Link>
+            <Link to="/support">💬 Support</Link>
+          </>
+        )}
+
+        {/* Navigation admin */}
+        {role === "admin" && (
+          <>
+            <span style={{ color: "#dc2626", fontWeight: "bold" }}>|</span>
+            <Link to="/admin" style={{ color: "#dc2626", fontWeight: "bold" }}>⚙️ Administration</Link>
+            <Link to="/admin/support" style={{ color: "#dc2626" }}>📞 Support Admin</Link>
+            <Link to="/support-test" style={{ color: "#7c3aed", fontSize: "0.9em" }}>🧪 Debug</Link>
+          </>
+        )}
+
+        {/* Navigation pour utilisateurs non connectés */}
+        {!isAuth && (
+          <>
+            <Link to="/login" style={{ color: "#059669" }}>🔑 Connexion</Link>
+            <Link to="/register" style={{ color: "#059669" }}>📝 Inscription</Link>
+          </>
+        )}
+
+        {/* Informations utilisateur et déconnexion */}
+        {isAuth && (
+          <>
+            <span style={{ color: "#6b7280", fontSize: "0.9em" }}>
+              Connecté en tant que <strong>{role === "admin" ? "Administrateur" : "Client"}</strong>
             </span>
             <button
               onClick={handleLogout}
               className="logout-btn"
               style={{
-                background: "#eff6ff",
-                color: "#2563eb",
-                border: "1px solid #bfdbfe",
+                background: "#fef2f2",
+                color: "#dc2626",
+                border: "1px solid #fecaca",
                 borderRadius: 6,
-                padding: "4px 10px",
+                padding: "6px 12px",
                 cursor: "pointer",
-                fontWeight: "600"
+                fontWeight: "600",
+                fontSize: "0.9em"
               }}
               title="Se déconnecter"
             >
-              Déconnexion
+              🚪 Déconnexion
             </button>
           </>
         )}
@@ -111,16 +132,53 @@ function AppContent() {
         <Route path="/register" element={<Register />} />
 
         {/* ✅ Routes utilisateur connecté */}
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/orders/:orderId" element={<OrderDetail />} />
-        <Route path="/orders/:orderId/invoice" element={<OrderDetail />} />
-        <Route path="/support" element={<Support />} />
+        <Route path="/profile" element={
+          <ProtectedRoute requireAuth={true}>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        <Route path="/orders" element={
+          <ProtectedRoute requireAuth={true}>
+            <Orders />
+          </ProtectedRoute>
+        } />
+        <Route path="/orders/:orderId" element={
+          <ProtectedRoute requireAuth={true}>
+            <OrderDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="/orders/:orderId/invoice" element={
+          <ProtectedRoute requireAuth={true}>
+            <OrderDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="/support" element={
+          <ProtectedRoute requireAuth={true}>
+            <Support />
+          </ProtectedRoute>
+        } />
+        <Route path="/support-test" element={
+          <ProtectedRoute requireAuth={true} requireAdmin={true}>
+            <SupportTest />
+          </ProtectedRoute>
+        } />
 
         {/* ✅ Route Admin (protégée visuellement par le menu) */}
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/admin/orders/:orderId" element={<AdminOrderDetail />} />
-        <Route path="/admin/support" element={<AdminSupport />} />
+        <Route path="/admin" element={
+          <ProtectedRoute requireAuth={true} requireAdmin={true}>
+            <Admin />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/orders/:orderId" element={
+          <ProtectedRoute requireAuth={true} requireAdmin={true}>
+            <AdminOrderDetail />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/support" element={
+          <ProtectedRoute requireAuth={true} requireAdmin={true}>
+            <AdminSupport />
+          </ProtectedRoute>
+        } />
       </Routes>
     </div>
   );

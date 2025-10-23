@@ -31,19 +31,15 @@ export default function PaymentModal({
     setError("");
 
     try {
-      // Extraire les 4 derniers chiffres
-      const cardLast4 = cardNumber.replace(/\D/g, "").slice(-4);
-      
-      // Générer une clé d'idempotence unique
-      const idempotencyKey = `${orderId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
       const result = await api.processPayment({
         orderId,
-        cardLast4,
-        idempotencyKey
+        cardNumber: cardNumber.replace(/\D/g, ""),
+        expMonth: 12,
+        expYear: 2025,
+        cvc: "123"
       });
 
-      if (result.status === "PAID") {
+      if (result.status === "SUCCEEDED") {
         setSuccess(true);
         setTimeout(() => {
           onSuccess(result);

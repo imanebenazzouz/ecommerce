@@ -2,11 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import PaymentModal from "../components/PaymentModal";
 
 export default function Cart() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
   const [products, setProducts] = useState([]);
@@ -17,30 +17,61 @@ export default function Cart() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
+    // Attendre que l'authentification soit complètement chargée
+    if (authLoading) {
+      return;
+    }
+
     (async () => {
       try {
+        setErr(""); // Réinitialiser les erreurs
+        setPending(true);
+        
+        // Charger les produits d'abord
+        console.log('🛒 Chargement des produits...');
         const ps = await api.listProducts();
         setProducts(ps);
+        console.log('✅ Produits chargés');
 
         if (isAuthenticated()) {
           // Utilisateur connecté : récupérer le panier du serveur
-          const c = await api.getCart();
-          setCart(c);
+          console.log('🛒 Chargement du panier serveur...');
+          try {
+            const c = await api.getCart();
+            setCart(c);
+            console.log('✅ Panier serveur chargé');
+          } catch (cartError) {
+            console.warn('Erreur chargement panier serveur:', cartError);
+            if (cartError.status === 401) {
+              // Session expirée, basculer sur le panier local
+              const localCart = getLocalCart();
+              setCart(localCart);
+              setErr("Session expirée, utilisation du panier local");
+            } else {
+              // Autre erreur, essayer le panier local en fallback
+              const localCart = getLocalCart();
+              setCart(localCart);
+              setErr(`Erreur serveur: ${cartError.message}. Utilisation du panier local.`);
+            }
+          }
         } else {
           // Utilisateur non connecté : récupérer le panier local
+          console.log('🛒 Chargement du panier local...');
           const localCart = getLocalCart();
           setCart(localCart);
+          console.log('✅ Panier local chargé');
         }
       } catch (e) {
-        setErr(e.message);
-        if (e.status === 401) {
-          // En cas d'erreur 401, basculer sur le panier local
-          const localCart = getLocalCart();
-          setCart(localCart);
-        }
+        console.error('Erreur chargement général:', e);
+        // En cas d'erreur générale, essayer au moins le panier local
+        const localCart = getLocalCart();
+        setCart(localCart);
+        setErr(`Erreur de chargement: ${e.message}. Utilisation du panier local.`);
+      } finally {
+        setPending(false);
       }
     })();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
 
   // Fonction pour récupérer le panier local
   function getLocalCart() {
@@ -56,7 +87,11 @@ export default function Cart() {
   // Maps utiles
   const priceById = useMemo(() => {
     const m = new Map();
-    products.forEach((p) => m.set(p.id, p.price_cents));
+    products.forEach((p) => {
+      // Adapter aux différents formats d'API
+      const price = p.price_cents || (p.price ? Math.round(p.price * 100) : 0);
+      m.set(p.id, price);
+    });
     return m;
   }, [products]);
 
@@ -81,14 +116,32 @@ export default function Cart() {
   async function reload() {
     try {
       if (isAuthenticated()) {
-        const c = await api.getCart();
-        setCart(c);
+        try {
+          const c = await api.getCart();
+          setCart(c);
+          setErr(""); // Effacer les erreurs en cas de succès
+        } catch (cartError) {
+          console.warn('Erreur reload panier serveur:', cartError);
+          if (cartError.status === 401) {
+            // Session expirée, basculer sur le panier local
+            const localCart = getLocalCart();
+            setCart(localCart);
+            setErr("Session expirée, utilisation du panier local");
+          } else {
+            // Autre erreur, garder le panier local
+            const localCart = getLocalCart();
+            setCart(localCart);
+            setErr(`Erreur serveur: ${cartError.message}. Utilisation du panier local.`);
+          }
+        }
       } else {
         const localCart = getLocalCart();
         setCart(localCart);
+        setErr(""); // Effacer les erreurs en cas de succès
       }
     } catch (e) {
-      setErr(e.message);
+      console.error('Erreur reload général:', e);
+      setErr(`Erreur de rechargement: ${e.message}`);
     }
   }
 
@@ -207,7 +260,7 @@ export default function Cart() {
     }
   }
 
-  const handlePaymentSuccess = (paymentResult) => {
+  const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
     setMsg("✅ Paiement réussi ! Redirection vers vos commandes...");
     
@@ -222,6 +275,25 @@ export default function Cart() {
     setOrderId(null);
     setMsg("Paiement annulé. Votre commande reste en attente.");
   };
+
+  // Afficher le chargement pendant l'initialisation de l'authentification
+  if (authLoading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        <div style={{ 
+          display: 'inline-block',
+          width: '40px',
+          height: '40px',
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #2563eb',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '16px'
+        }}></div>
+        <p>Initialisation de votre session...</p>
+      </div>
+    );
+  }
 
   if (!cart && !err) return <p style={{ padding: 40 }}>Chargement…</p>;
 
@@ -245,6 +317,24 @@ export default function Cart() {
           </p>
           <p style={{ margin: "8px 0 0 0", color: "#0c4a6e", fontSize: 14 }}>
             Vous pouvez modifier votre panier, mais vous devrez vous connecter ou créer un compte pour passer commande.
+          </p>
+        </div>
+      )}
+
+      {/* Message d'information pour les erreurs de serveur */}
+      {isAuthenticated() && err && err.includes("Erreur serveur") && (
+        <div style={{ 
+          backgroundColor: "#fef3c7", 
+          border: "1px solid #f59e0b", 
+          borderRadius: 8, 
+          padding: 16, 
+          marginBottom: 20 
+        }}>
+          <p style={{ margin: 0, color: "#92400e", fontWeight: 600 }}>
+            ⚠️ Problème de connexion au serveur
+          </p>
+          <p style={{ margin: "8px 0 0 0", color: "#92400e", fontSize: 14 }}>
+            Votre panier local est affiché. Les modifications seront synchronisées dès que la connexion sera rétablie.
           </p>
         </div>
       )}
@@ -273,7 +363,7 @@ export default function Cart() {
                   <div>
                     <div style={{ fontWeight: 700 }}>{name}</div>
                     <div style={{ color: "#64748b", fontSize: 14 }}>
-                      {fmt.format(unit / 100)} / unité
+                      {unit > 0 ? fmt.format(unit / 100) : "Prix non disponible"} / unité
                     </div>
                   </div>
 
@@ -307,7 +397,9 @@ export default function Cart() {
                     </button>
                   </div>
 
-                  <div style={{ fontWeight: 700 }}>{fmt.format(line / 100)}</div>
+                  <div style={{ fontWeight: 700 }}>
+                    {line > 0 ? fmt.format(line / 100) : "Prix non disponible"}
+                  </div>
                 </li>
               );
             })}
@@ -315,7 +407,7 @@ export default function Cart() {
 
           <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 12 }}>
             <p style={{ margin: 0 }}>
-              Total : <strong>{fmt.format(totalCents / 100)}</strong>
+              Total : <strong>{totalCents > 0 ? fmt.format(totalCents / 100) : "0,00 €"}</strong>
             </p>
             <button onClick={clearCart} disabled={pending} style={btnLight}>
               Vider le panier
@@ -423,3 +515,19 @@ const btnDanger = {
   padding: "6px 10px",
   cursor: "pointer",
 };
+
+// Animation pour le spinner
+const spinKeyframes = `
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+`;
+
+// Injecter les styles si pas déjà présents
+if (!document.getElementById('cart-spinner-styles')) {
+  const style = document.createElement('style');
+  style.id = 'cart-spinner-styles';
+  style.textContent = spinKeyframes;
+  document.head.appendChild(style);
+}

@@ -21,6 +21,7 @@ export default function AdminOrderDetail() {
   useEffect(() => {
     async function fetchOrder() {
       try {
+        setError("");
         const orderData = await api.adminGetOrder(orderId);
         setOrder(orderData);
       } catch (err) {
@@ -28,14 +29,17 @@ export default function AdminOrderDetail() {
         if (err.status === 404) {
           setError("Commande introuvable");
         } else {
-          setError("Erreur lors du chargement de la commande");
+          setError(`Erreur lors du chargement de la commande: ${err.message || "Erreur inconnue"}`);
         }
+        setOrder(null);
       } finally {
         setLoading(false);
       }
     }
 
-    fetchOrder();
+    if (orderId) {
+      fetchOrder();
+    }
   }, [orderId]);
 
   const fmt = new Intl.NumberFormat("fr-FR", {
@@ -71,36 +75,48 @@ export default function AdminOrderDetail() {
 
   const handleValidate = async () => {
     try {
+      setError("");
       await api.adminValidateOrder(orderId);
       setMsg("✅ Commande validée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
     } catch (err) {
+      console.error("Erreur validation commande:", err);
       setError(err.message || "Erreur lors de la validation");
     }
   };
 
   const handleShip = async () => {
     try {
+      setError("");
       await api.adminShipOrder(orderId);
       setMsg("✅ Commande expédiée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
     } catch (err) {
-      setError(err.message || "Erreur lors de l'expédition");
+      console.error("Erreur expédition:", err);
+      if (err.status === 422) {
+        setError(`Erreur de validation: ${err.message}`);
+      } else if (err.status === 400) {
+        setError(`Erreur de statut: ${err.message}`);
+      } else {
+        setError(err.message || "Erreur lors de l'expédition");
+      }
     }
   };
 
   const handleMarkDelivered = async () => {
     try {
+      setError("");
       await api.adminMarkDelivered(orderId);
       setMsg("✅ Commande marquée comme livrée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
     } catch (err) {
+      console.error("Erreur marquage livré:", err);
       setError(err.message || "Erreur lors de la mise à jour");
     }
   };

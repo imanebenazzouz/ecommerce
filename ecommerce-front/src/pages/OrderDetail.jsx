@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -26,12 +26,12 @@ export default function OrderDetail() {
         try {
           const invoiceData = await api.getInvoice(orderId);
           setInvoice(invoiceData);
-        } catch (err) {
+        } catch {
           // Pas de facture disponible
         }
-      } catch (err) {
-        console.error("Erreur chargement commande:", err);
-        if (err.status === 404) {
+      } catch (error) {
+        console.error("Erreur chargement commande:", error);
+        if (error.status === 404) {
           setError("Commande introuvable");
         } else {
           setError("Erreur lors du chargement de la commande");

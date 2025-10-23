@@ -1,7 +1,7 @@
 // src/pages/Catalog.jsx
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import "../styles/catalog.css";
 
 export default function Catalog() {
@@ -13,10 +13,12 @@ export default function Catalog() {
   useEffect(() => {
     (async () => {
       try {
+        setErr(""); // Réinitialiser les erreurs
         const data = await api.listProducts();
         setProducts(data);
       } catch (e) {
-        setErr(e.message);
+        console.error('Erreur chargement produits:', e);
+        setErr(`Erreur de chargement: ${e.message}`);
       }
     })();
   }, []);
@@ -85,15 +87,23 @@ export default function Catalog() {
 
               <div className="pcard__meta">
                 <span className="pcard__price">
-                  {fmt.format(p.price_cents / 100)}
+                  {(() => {
+                    // Adapter aux différents formats d'API
+                    const price = p.price_cents || (p.price ? Math.round(p.price * 100) : 0);
+                    return price > 0 ? fmt.format(price / 100) : "Prix non disponible";
+                  })()}
                 </span>
                 <span className="pcard__stock">
                   Stock&nbsp;:{" "}
-                  {p.stock_qty <= 0
-                    ? "Rupture"
-                    : p.stock_qty < 5
-                    ? "Faible"
-                    : p.stock_qty}
+                  {(() => {
+                    // Adapter aux différents formats d'API
+                    const stock = p.stock_qty || p.stock || 0;
+                    return stock <= 0
+                      ? "Rupture"
+                      : stock < 5
+                      ? "Faible"
+                      : stock;
+                  })()}
                 </span>
               </div>
             </div>
@@ -101,10 +111,10 @@ export default function Catalog() {
             <div className="pcard__foot">
               <button
                 onClick={() => add(p)}
-                disabled={!p.active || p.stock_qty <= 0}
+                disabled={!p.active || (p.stock_qty || p.stock || 0) <= 0}
                 className="btn btn--primary"
               >
-                {p.stock_qty > 0 ? "Ajouter au panier" : "Rupture"}
+                {(p.stock_qty || p.stock || 0) > 0 ? "Ajouter au panier" : "Rupture"}
               </button>
             </div>
           </article>

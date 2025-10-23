@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 import { setToken as apiSetToken } from "../lib/api"; // si tu l'as
 
 export default function Header() {
@@ -11,7 +11,11 @@ export default function Header() {
   const linkCls = ({ isActive }) => "nav-link" + (isActive ? " active" : "");
 
   const handleLogout = () => {
-    try { apiSetToken?.(null); } catch {}
+    try { 
+      apiSetToken?.(null); 
+    } catch {
+      // Ignore errors when clearing token
+    }
     logout();
     navigate("/");
   };

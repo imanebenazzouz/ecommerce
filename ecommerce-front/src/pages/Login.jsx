@@ -1,8 +1,8 @@
 // src/pages/Login.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -25,16 +25,27 @@ export default function Login() {
         const localCart = JSON.parse(localCartData);
         const items = Object.values(localCart.items || {});
         
-        // Ajouter chaque article du panier local au panier serveur
-        for (const item of items) {
-          await api.addToCart({ product_id: item.product_id, qty: item.quantity });
+        if (items.length > 0) {
+          console.log(`🛒 Synchronisation de ${items.length} articles du panier local...`);
+          
+          // Ajouter chaque article du panier local au panier serveur
+          for (const item of items) {
+            try {
+              await api.addToCart({ product_id: item.product_id, qty: item.quantity });
+              console.log(`✅ Article ${item.product_id} (qty: ${item.quantity}) synchronisé`);
+            } catch (itemError) {
+              console.warn(`⚠️ Erreur pour l'article ${item.product_id}:`, itemError);
+              // Continuer avec les autres articles même si un échoue
+            }
+          }
+          
+          // Vider le panier local après synchronisation réussie
+          localStorage.removeItem('localCart');
+          console.log('✅ Panier local synchronisé et vidé');
         }
-        
-        // Vider le panier local après synchronisation
-        localStorage.removeItem('localCart');
       }
     } catch (error) {
-      console.warn("Erreur lors de la synchronisation du panier:", error);
+      console.warn("❌ Erreur lors de la synchronisation du panier:", error);
       // Ne pas bloquer la connexion si la synchronisation échoue
     }
   }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Orders() {
   const { isAuthenticated } = useAuth();
@@ -17,11 +17,17 @@ export default function Orders() {
 
     async function fetchOrders() {
       try {
+        setError(""); // Réinitialiser les erreurs
+        setLoading(true);
+        
+        // Petit délai pour s'assurer que l'authentification est complète
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const data = await api.myOrders();
         setOrders(data);
       } catch (err) {
         console.error("Erreur chargement commandes:", err);
-        setError("Erreur lors du chargement de vos commandes");
+        setError(`Erreur lors du chargement de vos commandes: ${err.message}`);
       } finally {
         setLoading(false);
       }
