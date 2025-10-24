@@ -8,8 +8,8 @@
 - **Health Check**: http://localhost/health
 
 ### Comptes de test
-- **Admin**: admin@ecommerce.com / admin123
-- **Client test**: client@test.com / client123
+- **Admin**: admin@ecommerce.com / admin
+- **Client test**: client@test.com / secret
 
 ## 🗄️ Accès à la base de données PostgreSQL
 
