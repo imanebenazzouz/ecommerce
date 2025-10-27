@@ -35,6 +35,10 @@ def validate_luhn(card_number: str) -> bool:
     if not sanitized:
         return False
     
+    # Rejeter les cartes avec tous les chiffres identiques (0000..., 1111..., etc.)
+    if len(set(sanitized)) == 1:
+        return False
+    
     # Algorithme de Luhn
     total = 0
     is_even = False
@@ -181,7 +185,7 @@ def validate_postal_code(postal_code: str) -> Tuple[bool, str]:
 
 def validate_phone(phone: str) -> Tuple[bool, str]:
     """
-    Valide un numéro de téléphone français (10 chiffres, commence par 06 ou 07)
+    Valide un numéro de téléphone français (10 chiffres, commence par 01-09)
     
     Args:
         phone: Le numéro de téléphone
@@ -194,9 +198,9 @@ def validate_phone(phone: str) -> Tuple[bool, str]:
     if not re.match(r'^[0-9]{10}$', sanitized):
         return False, "Numéro de téléphone invalide — 10 chiffres."
     
-    # Vérifier que le numéro commence par 06 ou 07
-    if not re.match(r'^0[67]', sanitized):
-        return False, "Le numéro de téléphone doit commencer par 06 ou 07."
+    # Vérifier que le numéro commence par 01 à 09
+    if not re.match(r'^0[1-9]', sanitized):
+        return False, "Le numéro de téléphone doit commencer par 01 à 09."
     
     return True, ""
 
@@ -211,9 +215,11 @@ def validate_street_number(street_number: str) -> Tuple[bool, str]:
     Returns:
         Tuple (is_valid, error_message)
     """
-    sanitized = sanitize_numeric(street_number)
+    if not isinstance(street_number, str) or not street_number:
+        return False, "Numéro de rue : chiffres uniquement."
     
-    if not re.match(r'^[0-9]+$', sanitized) or len(sanitized) == 0:
+    # Vérifier que la chaîne originale ne contient que des chiffres
+    if not re.match(r'^[0-9]+$', street_number):
         return False, "Numéro de rue : chiffres uniquement."
     
     return True, ""

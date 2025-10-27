@@ -27,7 +27,6 @@ from services.auth_service import AuthService
 create_tables()
 
 client = TestClient(app)
-auth_service = AuthService()
 
 
 @pytest.fixture
@@ -67,6 +66,7 @@ def setup_user_and_product(db_session):
     product = product_repo.create(product_data)
     
     # Créer un token
+    auth_service = AuthService(user_repo)
     token = auth_service.create_access_token(data={"sub": str(user.id)})
     
     return {

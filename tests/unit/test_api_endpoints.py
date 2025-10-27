@@ -133,7 +133,7 @@ class TestAPIEndpoints:
             response = client.post("/auth/login", json=valid_data)
             
             assert response.status_code == 200
-        data = response.json()
+            data = response.json()
             assert "access_token" in data
             assert "token_type" in data
             assert "user" in data
@@ -154,7 +154,7 @@ class TestAPIEndpoints:
             response = client.post("/auth/login", json=invalid_data)
             
             assert response.status_code == 401
-        data = response.json()
+            data = response.json()
             assert "detail" in data
             assert "incorrect" in data["detail"].lower()
     
