@@ -238,17 +238,21 @@ export default function Cart() {
   }
 
   async function checkout() {
-    setErr(""); setMsg("");
+    // Protection contre les doubles clics - mettre pending IMMÉDIATEMENT
+    if (pending) return; // Si déjà en cours, ignorer le clic
     
-    // Vérification d'authentification avant le paiement
-    if (!isAuthenticated()) {
-      // Redirection vers login avec paramètre de retour
-      navigate("/login?next=/cart");
-      return;
-    }
-
-    setPending(true);
+    setErr(""); setMsg("");
+    setPending(true); // Mettre pending AVANT toute autre opération
+    
     try {
+      // Vérification d'authentification avant le paiement
+      if (!isAuthenticated()) {
+        setPending(false);
+        // Redirection vers login avec paramètre de retour
+        navigate("/login?next=/cart");
+        return;
+      }
+
       const res = await api.checkout();
       setOrderId(res.order_id);
       setShowPaymentModal(true);

@@ -138,6 +138,13 @@ class Payment(Base):
     payment_method = Column(String(50), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     
+    # Informations de paiement détaillées
+    card_last4 = Column(String(4), nullable=True)  # 4 derniers chiffres de la carte
+    postal_code = Column(String(5), nullable=True)
+    phone = Column(String(10), nullable=True)
+    street_number = Column(String(10), nullable=True)
+    street_name = Column(String(100), nullable=True)  # Nom de rue
+    
     # Relations
     order = relationship("Order")
 

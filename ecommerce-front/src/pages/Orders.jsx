@@ -8,6 +8,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [downloadingInvoice, setDownloadingInvoice] = useState(null); // Track which invoice is being downloaded
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -148,8 +149,17 @@ export default function Orders() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h2>Mes commandes</h2>
+    <>
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      <div style={{ padding: 40 }}>
+        <h2>Mes commandes</h2>
       
       {orders.length === 0 ? (
         <div style={{
@@ -259,43 +269,92 @@ export default function Orders() {
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
                 <Link
                   to={`/orders/${order.id}`}
                   style={{
-                    padding: "8px 16px",
+                    padding: "10px 20px",
                     backgroundColor: "#f3f4f6",
                     color: "#374151",
                     textDecoration: "none",
-                    borderRadius: 6,
+                    borderRadius: 8,
                     fontSize: 14,
-                    fontWeight: 600
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    border: "2px solid #e5e7eb",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = "#e5e7eb";
+                    e.target.style.transform = "translateY(-1px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = "#f3f4f6";
+                    e.target.style.transform = "translateY(0)";
                   }}
                 >
+                  <span>👁️</span>
                   Voir le détail
                 </Link>
                 
                 {order.status === "PAYEE" && (
                   <button
                     onClick={async () => {
+                      setDownloadingInvoice(order.id);
                       try {
                         await api.downloadInvoicePDF(order.id);
+                        // Success feedback - could add a toast notification here
                       } catch (err) {
-                        alert("Erreur lors du téléchargement : " + (err.message || "Erreur inconnue"));
+                        alert("❌ Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
+                      } finally {
+                        setDownloadingInvoice(null);
                       }
                     }}
+                    disabled={downloadingInvoice === order.id}
                     style={{
-                      padding: "8px 16px",
-                      backgroundColor: "#dbeafe",
-                      color: "#1d4ed8",
-                      border: "none",
-                      borderRadius: 6,
+                      padding: "10px 20px",
+                      backgroundColor: downloadingInvoice === order.id ? "#93c5fd" : "#3b82f6",
+                      color: "white",
+                      border: "2px solid #2563eb",
+                      borderRadius: 8,
                       fontSize: 14,
                       fontWeight: 600,
-                      cursor: "pointer"
+                      cursor: downloadingInvoice === order.id ? "wait" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      transition: "all 0.2s",
+                      opacity: downloadingInvoice === order.id ? 0.7 : 1,
+                      boxShadow: downloadingInvoice === order.id ? "none" : "0 2px 4px rgba(59, 130, 246, 0.3)"
+                    }}
+                    onMouseEnter={(e) => {
+                      if (downloadingInvoice !== order.id) {
+                        e.target.style.backgroundColor = "#2563eb";
+                        e.target.style.transform = "translateY(-1px)";
+                        e.target.style.boxShadow = "0 4px 6px rgba(59, 130, 246, 0.4)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (downloadingInvoice !== order.id) {
+                        e.target.style.backgroundColor = "#3b82f6";
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow = "0 2px 4px rgba(59, 130, 246, 0.3)";
+                      }
                     }}
                   >
-                    📄 Facture PDF
+                    {downloadingInvoice === order.id ? (
+                      <>
+                        <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
+                        Téléchargement...
+                      </>
+                    ) : (
+                      <>
+                        <span>📄</span>
+                        Télécharger la facture
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -314,16 +373,29 @@ export default function Orders() {
                       }
                     }}
                     style={{
-                      padding: "8px 16px",
+                      padding: "10px 20px",
                       backgroundColor: "#fef2f2",
                       color: "#dc2626",
-                      border: "none",
-                      borderRadius: 6,
+                      border: "2px solid #fecaca",
+                      borderRadius: 8,
                       fontSize: 14,
                       fontWeight: 600,
-                      cursor: "pointer"
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 8,
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#fee2e2";
+                      e.target.style.transform = "translateY(-1px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "#fef2f2";
+                      e.target.style.transform = "translateY(0)";
                     }}
                   >
+                    <span>❌</span>
                     Annuler
                   </button>
                 )}
@@ -332,6 +404,7 @@ export default function Orders() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

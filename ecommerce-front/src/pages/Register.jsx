@@ -1,6 +1,7 @@
 // src/pages/Register.jsx
 import React, { useState } from "react";
 import { api } from "../lib/api";
+import { validateAddress, validateName } from "../utils/validations";
 
 export default function Register() {
   const [form, setForm] = useState({ email:"", password:"", confirm:"", first_name:"", last_name:"", address:"" });
@@ -15,6 +16,18 @@ export default function Register() {
     if (!isStrong(form.password)) return setErr("Mot de passe faible (8+, maj, min, chiffre)");
     if (form.password !== form.confirm) return setErr("Les mots de passe ne correspondent pas");
     if (!form.first_name || !form.last_name || !form.address) return setErr("Tous les champs sont obligatoires");
+    
+    // Valider le prénom (pas de chiffres)
+    const firstNameValidation = validateName(form.first_name, "Prénom");
+    if (!firstNameValidation.valid) return setErr(firstNameValidation.error);
+    
+    // Valider le nom (pas de chiffres)
+    const lastNameValidation = validateName(form.last_name, "Nom");
+    if (!lastNameValidation.valid) return setErr(lastNameValidation.error);
+    
+    // Valider le format de l'adresse
+    const addressValidation = validateAddress(form.address);
+    if (!addressValidation.valid) return setErr(addressValidation.error);
     try {
       await api.register({
         email: form.email, password: form.password,
@@ -57,7 +70,17 @@ export default function Register() {
           </label>
         </div>
         <label> Adresse
-          <input name="address" value={form.address} onChange={onChange} required style={{ display:"block", width:"100%", padding:8, margin:"6px 0 10px" }} />
+          <input 
+            name="address" 
+            value={form.address} 
+            onChange={onChange} 
+            required 
+            placeholder="Ex: 12 Rue des Fleurs, 75001 Paris"
+            style={{ display:"block", width:"100%", padding:8, margin:"6px 0 10px" }} 
+          />
+          <small style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: -6, marginBottom: 10 }}>
+            Format attendu : numéro de rue, nom de rue, code postal, ville
+          </small>
         </label>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap: 10 }}>
           <label> Mot de passe

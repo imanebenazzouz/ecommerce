@@ -227,14 +227,18 @@ async function getOrderTracking(orderId) {
 }
 
 // POST /orders/{order_id}/pay (système de paiement)
-async function processPayment({ orderId, cardNumber, expMonth, expYear, cvc }) {
+async function processPayment({ orderId, cardNumber, expMonth, expYear, cvc, postalCode, phone, streetNumber, streetName }) {
   return request(`/orders/${orderId}/pay`, {
     method: "POST",
     body: JSON.stringify({ 
       card_number: cardNumber, 
       exp_month: expMonth, 
       exp_year: expYear, 
-      cvc: cvc 
+      cvc: cvc,
+      postal_code: postalCode,
+      phone: phone,
+      street_number: streetNumber,
+      street_name: streetName
     }),
   });
 }

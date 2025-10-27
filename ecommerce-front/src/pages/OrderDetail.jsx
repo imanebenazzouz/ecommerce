@@ -10,6 +10,7 @@ export default function OrderDetail() {
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -168,14 +169,23 @@ export default function OrderDetail() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <div style={{ marginBottom: 24 }}>
-        <Link 
-          to="/orders" 
-          style={{ 
-            color: "#2563eb", 
-            textDecoration: "none",
-            fontSize: 14,
+    <>
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
+      <div style={{ padding: 40 }}>
+        <div style={{ marginBottom: 24 }}>
+          <Link 
+            to="/orders" 
+            style={{ 
+              color: "#2563eb", 
+              textDecoration: "none",
+              fontSize: 14,
             fontWeight: 600
           }}
         >
@@ -326,24 +336,60 @@ export default function OrderDetail() {
             {invoice && (
               <button
                 onClick={async () => {
+                  setDownloadingInvoice(true);
                   try {
                     await api.downloadInvoicePDF(order.id);
                   } catch (err) {
-                    alert("Erreur lors du téléchargement : " + (err.message || "Erreur inconnue"));
+                    alert("❌ Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
+                  } finally {
+                    setDownloadingInvoice(false);
                   }
                 }}
+                disabled={downloadingInvoice}
                 style={{
-                  padding: "12px 16px",
-                  backgroundColor: "#dbeafe",
-                  color: "#1d4ed8",
-                  border: "none",
-                  borderRadius: 8,
+                  padding: "14px 20px",
+                  backgroundColor: downloadingInvoice ? "#93c5fd" : "#3b82f6",
+                  color: "white",
+                  border: "2px solid #2563eb",
+                  borderRadius: 10,
                   textAlign: "center",
-                  fontWeight: 600,
-                  cursor: "pointer"
+                  fontWeight: 700,
+                  cursor: downloadingInvoice ? "wait" : "pointer",
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  transition: "all 0.2s",
+                  opacity: downloadingInvoice ? 0.7 : 1,
+                  boxShadow: downloadingInvoice ? "none" : "0 4px 6px rgba(59, 130, 246, 0.4)"
+                }}
+                onMouseEnter={(e) => {
+                  if (!downloadingInvoice) {
+                    e.target.style.backgroundColor = "#2563eb";
+                    e.target.style.transform = "translateY(-2px)";
+                    e.target.style.boxShadow = "0 6px 8px rgba(59, 130, 246, 0.5)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!downloadingInvoice) {
+                    e.target.style.backgroundColor = "#3b82f6";
+                    e.target.style.transform = "translateY(0)";
+                    e.target.style.boxShadow = "0 4px 6px rgba(59, 130, 246, 0.4)";
+                  }
                 }}
               >
-                📄 Télécharger la facture PDF
+                {downloadingInvoice ? (
+                  <>
+                    <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
+                    <span>Téléchargement en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 20 }}>📄</span>
+                    <span>Télécharger la facture PDF</span>
+                  </>
+                )}
               </button>
             )}
 
@@ -377,6 +423,7 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

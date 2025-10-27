@@ -44,3 +44,5 @@ else
     echo "❌ Base de données non accessible. Vérifiez que les conteneurs sont démarrés."
     echo "   Commande: docker-compose -f docker-compose.prod.yml ps"
 fi
+
+

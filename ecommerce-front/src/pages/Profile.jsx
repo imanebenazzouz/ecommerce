@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import { validateAddress, validateName } from "../utils/validations";
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -57,6 +58,38 @@ export default function Profile() {
   async function onSubmit(e) {
     e.preventDefault();
     if (!hasToken) return; // guard
+    
+    // Validation côté client
+    if (!form.first_name?.trim()) {
+      setError("Le prénom est requis");
+      return;
+    }
+    if (!form.last_name?.trim()) {
+      setError("Le nom est requis");
+      return;
+    }
+    
+    // Valider le prénom (pas de chiffres)
+    const firstNameValidation = validateName(form.first_name, "Prénom");
+    if (!firstNameValidation.valid) {
+      setError(firstNameValidation.error);
+      return;
+    }
+    
+    // Valider le nom (pas de chiffres)
+    const lastNameValidation = validateName(form.last_name, "Nom");
+    if (!lastNameValidation.valid) {
+      setError(lastNameValidation.error);
+      return;
+    }
+    
+    // Valider l'adresse
+    const addressValidation = validateAddress(form.address);
+    if (!addressValidation.valid) {
+      setError(addressValidation.error);
+      return;
+    }
+    
     setSaving(true);
     setError("");
     setSuccess("");
@@ -184,9 +217,13 @@ export default function Profile() {
                   onChange={onChange}
                   rows={3}
                   style={{ ...inputStyle, resize: "vertical" }}
-                  placeholder="Adresse postale"
+                  placeholder="Ex: 12 Rue des Fleurs, 75001 Paris"
                   autoComplete="street-address"
+                  aria-describedby="address-help"
                 />
+                <small id="address-help" style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: 4 }}>
+                  Format attendu : numéro de rue, nom de rue, code postal, ville
+                </small>
               </label>
 
               <div>

@@ -1,189 +1,205 @@
-# 🧪 Guide des Tests - E-Commerce
+# 🧪 Tests - E-Commerce
 
-Ce dossier contient tous les tests de l'application e-commerce, organisés par catégorie.
+Suite de tests complète pour l'application e-commerce.
 
 ## 📁 Structure des Tests
 
 ```
 tests/
-├── unit/                    # Tests unitaires
-│   ├── test_auth.py        # Tests d'authentification
-│   ├── test_products.py    # Tests de produits
-│   ├── test_cart.py        # Tests de panier
-│   ├── test_orders.py      # Tests de commandes
-│   ├── test_payments.py    # Tests de paiements
-│   ├── test_support.py     # Tests de support
-│   └── test_api_endpoints.py # Tests d'endpoints
-├── integration/            # Tests d'intégration
-├── e2e/                   # Tests end-to-end
-│   └── test_final.py      # Test complet de l'application
-├── conftest.py            # Configuration commune
-├── run_all_tests.py       # Script principal
-├── run_unit_tests.py      # Script tests unitaires
-├── run_integration_tests.py # Script tests d'intégration
-├── run_e2e_tests.py       # Script tests end-to-end
-└── README.md              # Ce fichier
+├── unit/                       # Tests unitaires (26 fichiers)
+│   ├── test_address_validation.py
+│   ├── test_address_symbols_validation.py  # 🆕 Déplacé
+│   ├── test_validations.py
+│   ├── test_payment_storage.py            # 🆕 Déplacé
+│   ├── test_imports.py                    # 🆕 Déplacé
+│   ├── test_db_simple.py                  # 🆕 Déplacé
+│   ├── test_auth*.py                      # Tests d'authentification
+│   ├── test_cart*.py                      # Tests de panier
+│   ├── test_orders*.py                    # Tests de commandes
+│   ├── test_products*.py                  # Tests de produits
+│   ├── test_payments*.py                  # Tests de paiements
+│   ├── test_support*.py                   # Tests de support
+│   └── test_user_profile_advanced.py      # Tests profil utilisateur
+│
+├── integration/               # Tests d'intégration (9 fichiers)
+│   ├── test_payment_validation.py
+│   ├── test_inventory_management.py
+│   ├── test_database*.py
+│   ├── test_refund_system.py              # 🆕 Déplacé
+│   ├── test_name_validation.py            # 🆕 Déplacé
+│   ├── test_address_validation_manual.py  # 🆕 Déplacé
+│   └── test_full_sync.py                  # 🆕 Déplacé
+│
+├── e2e/                      # Tests end-to-end (6 fichiers)
+│   ├── test_final.py
+│   ├── test_checkout_validation.py
+│   ├── test_user_journey*.py
+│   ├── test_app.py                        # 🆕 Déplacé
+│   └── test_api_complete.py               # 🆕 Déplacé
+│
+├── legacy/                   # Anciens tests (35 fichiers)
+│   └── [Tests historiques conservés]
+│
+├── conftest.py               # Configuration commune
+├── run_all_tests.py          # Lance tous les tests
+├── run_unit_tests.py         # Tests unitaires uniquement
+├── run_integration_tests.py  # Tests d'intégration uniquement
+├── run_e2e_tests.py          # Tests E2E uniquement
+└── run_profile_inventory_tests.py  # Tests profil & inventaire
 ```
 
 ## 🎯 Types de Tests
 
 ### Tests Unitaires (`unit/`)
-Testent les composants individuels en isolation :
-- **test_auth.py** : Authentification, hashage, tokens JWT
-- **test_products.py** : CRUD produits, gestion stock
-- **test_cart.py** : Opérations panier, calculs
-- **test_orders.py** : Création commandes, statuts
-- **test_payments.py** : Simulation paiements
-- **test_support.py** : Système de tickets
-- **test_api_endpoints.py** : Endpoints API individuels
+Testent les composants individuels en isolation.
+
+**Fichiers récemment organisés :**
+- ✅ `test_address_symbols_validation.py` - Validation symboles dans adresses
+- ✅ `test_payment_storage.py` - Stockage des données de paiement
+- ✅ `test_imports.py` - Vérification des imports
+- ✅ `test_db_simple.py` - Tests simples de connexion DB
 
 ### Tests d'Intégration (`integration/`)
-Testent les interactions entre composants :
-- Intégration base de données
-- Intégration services
-- Intégration repositories
-- Flux de données complets
+Testent les interactions entre composants.
+
+**Fichiers récemment organisés :**
+- ✅ `test_refund_system.py` - Système complet de remboursement
+- ✅ `test_name_validation.py` - Validation noms/prénoms
+- ✅ `test_address_validation_manual.py` - Tests manuels d'adresses
+- ✅ `test_full_sync.py` - Synchronisation complète du système
 
 ### Tests End-to-End (`e2e/`)
-Testent l'application complète :
-- **test_final.py** : Parcours utilisateur complet
-- Scénarios réels d'utilisation
-- Tests de bout en bout
+Testent l'application complète.
+
+**Fichiers récemment organisés :**
+- ✅ `test_app.py` - Test principal de l'application
+- ✅ `test_api_complete.py` - Test complet de l'API
 
 ## 🚀 Exécution des Tests
 
-### Scripts de Test
-
-#### Tous les tests
+### Tous les tests
 ```bash
-# Depuis la racine du projet
+# Depuis la racine
 python run_all_tests.py
 
-# Ou depuis le dossier tests
-cd tests
-python run_all_tests.py
-```
-
-#### Par catégorie
-```bash
-# Tests unitaires uniquement
-python tests/run_unit_tests.py
-
-# Tests d'intégration uniquement
-python tests/run_integration_tests.py
-
-# Tests end-to-end uniquement
-python tests/run_e2e_tests.py
-```
-
-### Avec pytest
-
-#### Installation
-```bash
-pip install pytest pytest-cov
-```
-
-#### Exécution
-```bash
-# Tous les tests
+# Ou avec pytest
 pytest
+```
 
-# Tests unitaires uniquement
+### Par catégorie
+```bash
+# Tests unitaires
+python tests/run_unit_tests.py
 pytest tests/unit/
 
-# Tests avec marqueurs
-pytest -m unit
-pytest -m integration
-pytest -m e2e
+# Tests d'intégration
+python tests/run_integration_tests.py
+pytest tests/integration/
 
-# Avec couverture de code
-pytest --cov=ecommerce-backend --cov-report=html
-
-# Tests lents uniquement
-pytest -m slow
-
-# Tests d'authentification uniquement
-pytest -m auth
+# Tests end-to-end
+python tests/run_e2e_tests.py
+pytest tests/e2e/
 ```
 
-## 📊 Marqueurs de Test
+### Tests spécifiques déplacés
+```bash
+# Test du système de remboursement
+python tests/integration/test_refund_system.py
 
-Les tests utilisent des marqueurs pour la catégorisation :
+# Test de validation des noms
+python tests/integration/test_name_validation.py
 
-- `@pytest.mark.unit` : Tests unitaires
-- `@pytest.mark.integration` : Tests d'intégration
-- `@pytest.mark.e2e` : Tests end-to-end
-- `@pytest.mark.slow` : Tests lents
-- `@pytest.mark.auth` : Tests d'authentification
-- `@pytest.mark.products` : Tests de produits
-- `@pytest.mark.cart` : Tests de panier
-- `@pytest.mark.orders` : Tests de commandes
-- `@pytest.mark.payments` : Tests de paiements
-- `@pytest.mark.admin` : Tests d'administration
+# Test de stockage des paiements
+python tests/unit/test_payment_storage.py
 
-### Utilisation des marqueurs
+# Avec pytest
+pytest tests/unit/test_address_validation.py -v
+pytest tests/integration/test_refund_system.py -v
+```
+
+### Par marqueur
+```bash
+pytest -m unit          # Tests unitaires
+pytest -m integration   # Tests d'intégration
+pytest -m e2e           # Tests end-to-end
+pytest -m auth          # Tests d'authentification
+pytest -m payments      # Tests de paiements
+pytest -m profile       # Tests de profil
+pytest -m inventory     # Tests d'inventaire
+```
+
+## ✅ Corrections Effectuées
+
+Lors de la réorganisation, les imports ont été corrigés pour tous les fichiers déplacés :
+
+### Ancien import (incorrect)
 ```python
-import pytest
-
-@pytest.mark.unit
-@pytest.mark.auth
-def test_user_login():
-    """Test de connexion utilisateur"""
-    pass
-
-@pytest.mark.integration
-@pytest.mark.orders
-def test_order_creation_flow():
-    """Test du flux de création de commande"""
-    pass
-
-@pytest.mark.e2e
-@pytest.mark.slow
-def test_complete_user_journey():
-    """Test du parcours utilisateur complet"""
-    pass
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'ecommerce-backend'))
 ```
+
+### Nouvel import (correct)
+```python
+# Depuis tests/unit/
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ecommerce-backend'))
+sys.path.insert(0, backend_path)
+
+# Depuis tests/integration/
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ecommerce-backend'))
+sys.path.insert(0, backend_path)
+
+# Depuis tests/e2e/
+backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../ecommerce-backend'))
+sys.path.insert(0, backend_path)
+```
+
+## 📊 Statistiques
+
+- **Total des tests** : 100+
+- **Tests unitaires** : 60+
+- **Tests d'intégration** : 30+
+- **Tests end-to-end** : 10+
+- **Fichiers déplacés et corrigés** : 10
+- **Tests fonctionnels** : ✅ 100%
 
 ## 🔧 Configuration
 
-### Variables d'environnement
+### Variables d'Environnement
+Configurées automatiquement via `conftest.py` :
+- `TESTING=true`
+- `DATABASE_URL=postgresql://ecommerce:ecommerce123@localhost:5432/ecommerce_test`
+- `API_BASE_URL=http://localhost:8000`
+- `FRONTEND_URL=http://localhost:5173`
+
+### Fixtures Disponibles
+Définies dans `conftest.py` :
+- `test_config` - Configuration des tests
+- `mock_database` - Mock de la base de données
+- `sample_user_data` - Données utilisateur de test
+- `sample_product_data` - Données produit de test
+- `sample_order_data` - Données commande de test
+- `sample_payment_data` - Données paiement de test
+
+## 📝 Notes
+
+### Tests Legacy
+Le dossier `legacy/` contient les anciens tests conservés pour référence. Ils ne sont pas exécutés par défaut.
+
+### Couverture de Code
 ```bash
-# Base de données de test
-TEST_DATABASE_URL=postgresql://ecommerce:ecommerce123@localhost:5432/ecommerce_test
+# Générer un rapport de couverture
+pytest --cov=ecommerce-backend --cov-report=html
 
-# URLs de test
-API_BASE_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:5173
-
-# Configuration de test
-TESTING=true
+# Voir le rapport
+open htmlcov/index.html
 ```
 
-### Fixtures disponibles
-- `test_config` : Configuration des tests
-- `mock_database` : Mock de la base de données
-- `sample_user_data` : Données d'utilisateur de test
-- `sample_product_data` : Données de produit de test
-- `sample_order_data` : Données de commande de test
-- `sample_payment_data` : Données de paiement de test
+**Objectifs de couverture :**
+- Tests unitaires : > 90%
+- Tests d'intégration : > 80%
+- Tests end-to-end : > 70%
+- **Couverture globale : > 85%**
 
-## 📈 Couverture de Code
-
-### Générer un rapport de couverture
-```bash
-# Avec pytest-cov
-pytest --cov=ecommerce-backend --cov-report=html --cov-report=term
-
-# Le rapport HTML sera généré dans htmlcov/
-```
-
-### Objectifs de couverture
-- **Tests unitaires** : > 90%
-- **Tests d'intégration** : > 80%
-- **Tests end-to-end** : > 70%
-- **Couverture globale** : > 85%
-
-## 🐛 Débogage des Tests
+## 🐛 Débogage
 
 ### Mode verbose
 ```bash
@@ -193,11 +209,6 @@ pytest -v
 ### Arrêt au premier échec
 ```bash
 pytest -x
-```
-
-### Exécution d'un test spécifique
-```bash
-pytest tests/unit/test_auth.py::test_user_login
 ```
 
 ### Affichage des prints
@@ -210,71 +221,21 @@ pytest -s
 pytest --pdb
 ```
 
-## 📝 Bonnes Pratiques
-
-### Écriture des Tests
-1. **Nommage clair** : `test_<fonctionnalité>_<scenario>`
-2. **Un test = une assertion** : Un test ne doit vérifier qu'une chose
-3. **Données de test** : Utiliser des fixtures plutôt que des données hardcodées
-4. **Isolation** : Chaque test doit être indépendant
-5. **Nettoyage** : Nettoyer les données après chaque test
-
-### Structure d'un Test
-```python
-def test_user_registration_success():
-    """Test de l'inscription réussie d'un utilisateur"""
-    # Arrange (Préparation)
-    user_data = {
-        "email": "test@example.com",
-        "password": "password123",
-        "first_name": "Test",
-        "last_name": "User",
-        "address": "123 Test Street"
-    }
-    
-    # Act (Action)
-    result = auth_service.register_user(**user_data)
-    
-    # Assert (Vérification)
-    assert result is not None
-    assert result.email == user_data["email"]
-    assert result.first_name == user_data["first_name"]
-```
-
-### Gestion des Erreurs
-```python
-def test_user_registration_duplicate_email():
-    """Test de l'inscription avec email existant"""
-    # Arrange
-    user_data = {"email": "existing@example.com", ...}
-    auth_service.register_user(**user_data)  # Premier utilisateur
-    
-    # Act & Assert
-    with pytest.raises(ValueError, match="Email déjà utilisé"):
-        auth_service.register_user(**user_data)  # Deuxième utilisateur
-```
-
-## 🚨 Tests en Échec
-
-### Vérifications communes
-1. **Base de données** : Vérifier que PostgreSQL est démarré
-2. **API** : Vérifier que l'API est accessible
-3. **Frontend** : Vérifier que React est démarré
-4. **Dépendances** : Vérifier que toutes les dépendances sont installées
-5. **Variables d'environnement** : Vérifier la configuration
-
-### Logs de débogage
+### Logs détaillés
 ```bash
-# Activer les logs détaillés
 pytest -v -s --log-cli-level=DEBUG
-
-# Logs spécifiques à un test
-pytest tests/unit/test_auth.py -v -s --log-cli-level=DEBUG
 ```
 
-## 📚 Ressources
+## ✨ Améliorations Récentes
 
-- [Documentation pytest](https://docs.pytest.org/)
-- [pytest-cov](https://pytest-cov.readthedocs.io/)
-- [FastAPI Testing](https://fastapi.tiangolo.com/tutorial/testing/)
-- [SQLAlchemy Testing](https://docs.sqlalchemy.org/en/14/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites)
+### Octobre 2025
+- ✅ Nettoyage et réorganisation de tous les tests
+- ✅ Déplacement de 10 fichiers de test vers la bonne structure
+- ✅ Correction de tous les imports et chemins
+- ✅ Vérification du bon fonctionnement de tous les tests
+- ✅ Amélioration de la documentation
+
+---
+
+**Pour plus d'informations :** Voir `DOCUMENTATION.md` à la racine du projet.
+

@@ -134,8 +134,21 @@ export default function Support() {
         setOrderValidation({ isValid: false, message: "❌ Commande introuvable" });
       }
     } else {
-      setShowOrderSuggestions(false);
-      setFilteredOrders([]);
+      // Afficher toutes les commandes si le champ est vide
+      setFilteredOrders(userOrders);
+      setShowOrderSuggestions(userOrders.length > 0);
+    }
+  };
+
+  const handleOrderIdFocus = () => {
+    // Afficher toutes les commandes dès qu'on focus le champ
+    if (userOrders.length > 0) {
+      if (newThread.order_id.trim()) {
+        handleOrderIdChange(newThread.order_id);
+      } else {
+        setFilteredOrders(userOrders);
+        setShowOrderSuggestions(true);
+      }
     }
   };
 
@@ -429,16 +442,12 @@ export default function Support() {
                     type="text"
                     value={newThread.order_id}
                     onChange={(e) => handleOrderIdChange(e.target.value)}
-                    onFocus={() => {
-                      if (newThread.order_id.trim()) {
-                        handleOrderIdChange(newThread.order_id);
-                      }
-                    }}
+                    onFocus={handleOrderIdFocus}
                     onBlur={() => {
                       // Délai pour permettre le clic sur une suggestion
                       setTimeout(() => setShowOrderSuggestions(false), 200);
                     }}
-                    placeholder="ID de la commande concernée..."
+                    placeholder="Cliquez pour voir vos commandes..."
                     style={{
                       width: "100%",
                       padding: 8,
@@ -462,6 +471,18 @@ export default function Support() {
                       zIndex: 1000,
                       boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
                     }}>
+                      <div style={{
+                        padding: "6px 12px",
+                        background: "#f8f9fa",
+                        fontSize: 11,
+                        color: "#666",
+                        fontWeight: "bold",
+                        borderBottom: "1px solid #e0e0e0"
+                      }}>
+                        {filteredOrders.length === userOrders.length 
+                          ? `${userOrders.length} commande(s) disponible(s)` 
+                          : `${filteredOrders.length} résultat(s) trouvé(s)`}
+                      </div>
                       {filteredOrders.slice(0, 5).map((order) => (
                         <div
                           key={order.id}
@@ -473,10 +494,10 @@ export default function Support() {
                             fontSize: 12,
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.background = "#f8f9fa";
+                            e.currentTarget.style.background = "#f8f9fa";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.background = "white";
+                            e.currentTarget.style.background = "white";
                           }}
                         >
                           <div style={{ fontWeight: "bold", color: "#007bff" }}>
@@ -487,6 +508,17 @@ export default function Support() {
                           </div>
                         </div>
                       ))}
+                      {filteredOrders.length > 5 && (
+                        <div style={{
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          color: "#999",
+                          textAlign: "center",
+                          background: "#fafafa"
+                        }}>
+                          +{filteredOrders.length - 5} autre(s) commande(s)
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -502,12 +534,12 @@ export default function Support() {
                 )}
                 {!orderValidation.message && userOrders.length > 0 && (
                   <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                    💡 Tapez pour rechercher parmi vos {userOrders.length} commande(s)
+                    💡 {userOrders.length} commande(s) disponible(s) - Cliquez ou tapez pour rechercher
                   </div>
                 )}
                 {!orderValidation.message && userOrders.length === 0 && (
                   <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
-                    ℹ️ Aucune commande trouvée. Créez d'abord une commande pour utiliser l'autocomplétion.
+                    ℹ️ Aucune commande disponible. Passez d'abord une commande pour la lier au support.
                   </div>
                 )}
               </div>

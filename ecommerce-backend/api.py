@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List, Any, cast
 import uuid
 import io
@@ -230,7 +230,7 @@ def generate_invoice_pdf(invoice_data, order_data, user_data, payment_data=None,
     invoice_date = datetime.fromtimestamp(invoice_data['issued_at']).strftime("%d/%m/%Y %H:%M")
     story.append(Paragraph(f"<b>Numéro de facture:</b> {invoice_data['number']}", normal_style))
     story.append(Paragraph(f"<b>Date d'émission:</b> {invoice_date}", normal_style))
-    story.append(Paragraph(f"<b>Commande:</b> #{order_data['id'][:8]}", normal_style))
+    story.append(Paragraph(f"<b>Commande:</b> #{order_data['id'][-8:]}", normal_style))
     story.append(Spacer(1, 20))
     
     # Informations client
@@ -295,7 +295,7 @@ def generate_invoice_pdf(invoice_data, order_data, user_data, payment_data=None,
     if payment_data:
         story.append(Paragraph("INFORMATIONS DE PAIEMENT", heading_style))
         story.append(Paragraph(f"<b>Montant payé:</b> {payment_data['amount_cents'] / 100:.2f} €", normal_style))
-        story.append(Paragraph(f"<b>Statut:</b> {'PAYÉ' if payment_data['status'] == 'PAID' else 'ÉCHEC'}", normal_style))
+        story.append(Paragraph(f"<b>Statut:</b> {'PAYÉ ✓' if payment_data['status'] == 'SUCCEEDED' else 'ÉCHEC'}", normal_style))
         story.append(Paragraph(f"<b>Date de paiement:</b> {datetime.fromtimestamp(payment_data['created_at']).strftime('%d/%m/%Y %H:%M')}", normal_style))
         story.append(Spacer(1, 20))
     
@@ -329,7 +329,58 @@ class RegisterIn(BaseModel):
     password: str = Field(min_length=6)
     first_name: str
     last_name: str
-    address: str
+    address: str = Field(min_length=10, description="Adresse complète (rue, ville, code postal)")
+    
+    @field_validator('first_name', 'last_name')
+    @classmethod
+    def validate_name(cls, v, info):
+        """Valide que le nom/prénom ne contient que des lettres (pas de chiffres)"""
+        import re
+        
+        if not v or len(v.strip()) < 2:
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} doit contenir au moins 2 caractères")
+        
+        if len(v.strip()) > 100:
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} trop long (maximum 100 caractères)")
+        
+        # Vérifier qu'il n'y a pas de chiffres
+        if re.search(r'\d', v):
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} ne doit pas contenir de chiffres")
+        
+        # Vérifier le format : lettres, espaces, tirets, apostrophes autorisés (avec accents)
+        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', v.strip()):
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} invalide : lettres, espaces, apostrophes et tirets uniquement")
+        
+        return v.strip()
+    
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v):
+        """Valide que l'adresse contient au moins des informations de base"""
+        if not v or len(v.strip()) < 10:
+            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
+        
+        import re
+        
+        # Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
+        # Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
+        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', v.strip()):
+            raise ValueError("L'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés")
+        
+        # Vérifier qu'il y a un code postal (5 chiffres consécutifs)
+        if not re.search(r'\b\d{5}\b', v):
+            raise ValueError("L'adresse doit contenir un code postal valide (5 chiffres)")
+        
+        # Vérifier qu'il y a au moins quelques lettres
+        letter_count = sum(1 for char in v if char.isalpha())
+        if letter_count < 5:
+            raise ValueError("L'adresse doit contenir au moins 5 lettres (nom de rue et ville)")
+        
+        return v.strip()
 
 class UserOut(BaseModel):
     id: str
@@ -350,7 +401,64 @@ class TokenOut(BaseModel):
 class UserUpdateIn(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    address: Optional[str] = None
+    address: Optional[str] = Field(default=None, min_length=10, description="Adresse complète (rue, ville, code postal)")
+    
+    @field_validator('first_name', 'last_name')
+    @classmethod
+    def validate_name(cls, v, info):
+        """Valide que le nom/prénom ne contient que des lettres (pas de chiffres)"""
+        if v is None:
+            return v
+        
+        import re
+        
+        if len(v.strip()) < 2:
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} doit contenir au moins 2 caractères")
+        
+        if len(v.strip()) > 100:
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} trop long (maximum 100 caractères)")
+        
+        # Vérifier qu'il n'y a pas de chiffres
+        if re.search(r'\d', v):
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} ne doit pas contenir de chiffres")
+        
+        # Vérifier le format : lettres, espaces, tirets, apostrophes autorisés (avec accents)
+        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', v.strip()):
+            field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
+            raise ValueError(f"{field_name} invalide : lettres, espaces, apostrophes et tirets uniquement")
+        
+        return v.strip()
+    
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v):
+        """Valide que l'adresse contient au moins des informations de base"""
+        if v is None:
+            return v
+            
+        if len(v.strip()) < 10:
+            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
+        
+        import re
+        
+        # Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
+        # Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
+        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', v.strip()):
+            raise ValueError("L'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés")
+        
+        # Vérifier qu'il y a un code postal (5 chiffres consécutifs)
+        if not re.search(r'\b\d{5}\b', v):
+            raise ValueError("L'adresse doit contenir un code postal valide (5 chiffres)")
+        
+        # Vérifier qu'il y a au moins quelques lettres
+        letter_count = sum(1 for char in v if char.isalpha())
+        if letter_count < 5:
+            raise ValueError("L'adresse doit contenir au moins 5 lettres (nom de rue et ville)")
+        
+        return v.strip()
 
 class ProductOut(BaseModel):
     id: str
@@ -386,6 +494,10 @@ class PayIn(BaseModel):
     exp_month: int
     exp_year: int
     cvc: str
+    postal_code: Optional[str] = None
+    phone: Optional[str] = None
+    street_number: Optional[str] = None
+    street_name: Optional[str] = None
 
 class PaymentIn(BaseModel):
     order_id: str
@@ -1104,7 +1216,14 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
                 product_repo.update(product)
         
         # Mettre à jour le statut de la commande
-        order.status = OrderStatus.ANNULEE  # type: ignore
+        # Si la commande était payée et remboursée → REMBOURSEE (violet)
+        # Sinon (commande non payée) → ANNULEE (rouge)
+        if was_paid:
+            order.status = OrderStatus.REMBOURSEE  # type: ignore
+            order.refunded_at = datetime.utcnow()  # type: ignore
+        else:
+            order.status = OrderStatus.ANNULEE  # type: ignore
+        
         order.cancelled_at = datetime.utcnow()  # type: ignore
         order_repo.update(order)
         
@@ -1121,8 +1240,14 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
 # ====================== PAIEMENTS ======================
 @app.post("/orders/{order_id}/pay")
 def pay_order(order_id: str, payment_data: PayIn, uid: str = Depends(current_user_id), db: Session = Depends(get_db)):
-    """Simule un paiement pour une commande"""
+    """Simule un paiement pour une commande avec validation stricte"""
     try:
+        from utils.validations import (
+            validate_card_number, validate_cvv, validate_expiry_date,
+            validate_postal_code, validate_phone, validate_street_number,
+            validate_street_name
+        )
+        
         order_repo = PostgreSQLOrderRepository(db)
         payment_repo = PostgreSQLPaymentRepository(db)
         
@@ -1133,26 +1258,84 @@ def pay_order(order_id: str, payment_data: PayIn, uid: str = Depends(current_use
         if str(order.status) != OrderStatus.CREE:
             raise HTTPException(400, "Commande déjà payée ou traitée")
         
-        # Validation du numéro de carte
-        card_number = payment_data.card_number.replace(" ", "").replace("-", "")
+        # ============ VALIDATIONS STRICTES (avec Luhn) ============
         
-        # Vérifier que la carte ne se termine pas par 0000
+        # 1. Valider le numéro de carte (avec Luhn)
+        is_valid_card, card_error = validate_card_number(payment_data.card_number)
+        if not is_valid_card:
+            raise HTTPException(422, card_error)
+        
+        # 2. Valider le CVV
+        is_valid_cvv, cvv_error = validate_cvv(payment_data.cvc)
+        if not is_valid_cvv:
+            raise HTTPException(422, cvv_error)
+        
+        # 3. Valider la date d'expiration
+        is_valid_expiry, expiry_error = validate_expiry_date(
+            payment_data.exp_month, 
+            payment_data.exp_year
+        )
+        if not is_valid_expiry:
+            raise HTTPException(422, expiry_error)
+        
+        # 4. Valider le code postal (si fourni)
+        if payment_data.postal_code:
+            is_valid_postal, postal_error = validate_postal_code(payment_data.postal_code)
+            if not is_valid_postal:
+                raise HTTPException(422, postal_error)
+        
+        # 5. Valider le téléphone (si fourni)
+        if payment_data.phone:
+            is_valid_phone, phone_error = validate_phone(payment_data.phone)
+            if not is_valid_phone:
+                raise HTTPException(422, phone_error)
+        
+        # 6. Valider le numéro de rue (si fourni)
+        if payment_data.street_number:
+            is_valid_street, street_error = validate_street_number(payment_data.street_number)
+            if not is_valid_street:
+                raise HTTPException(422, street_error)
+        
+        # 7. Valider le nom de rue (si fourni)
+        if payment_data.street_name:
+            is_valid_street_name, street_name_error = validate_street_name(payment_data.street_name)
+            if not is_valid_street_name:
+                raise HTTPException(422, street_name_error)
+        
+        # ============ SIMULATION PAIEMENT ============
+        from utils.validations import sanitize_numeric
+        card_number = sanitize_numeric(payment_data.card_number)
+        
+        # Vérifier que la carte ne se termine pas par 0000 (règle métier pour les tests)
         if card_number.endswith("0000"):
             raise HTTPException(402, "Paiement refusé : carte invalide")
         
-        # Vérifier que la carte fait exactement 16 chiffres
-        if len(card_number) != 16 or not card_number.isdigit():
-            raise HTTPException(402, "Paiement refusé : numéro de carte invalide")
-        
         # Calculer le montant total
         total_cents = sum(item.unit_price_cents * item.quantity for item in order.items)
+        
+        # Sanitizer les données pour le stockage
+        sanitized_postal = sanitize_numeric(payment_data.postal_code) if payment_data.postal_code else None
+        sanitized_phone = sanitize_numeric(payment_data.phone) if payment_data.phone else None
+        sanitized_street = sanitize_numeric(payment_data.street_number) if payment_data.street_number else None
+        
+        # Nettoyer le nom de rue (sans sanitize_numeric)
+        import re
+        cleaned_street_name = None
+        if payment_data.street_name:
+            cleaned_street_name = re.sub(r'\s+', ' ', payment_data.street_name.strip())
         
         # Simuler le paiement (réussi si validation passée)
         payment_data_dict = {
             "order_id": order_id,
             "amount_cents": total_cents,
             "status": "SUCCEEDED",
-            "payment_method": "CARD"
+            "payment_method": "CARD",
+            # Sauvegarder les informations de paiement
+            "card_last4": card_number[-4:],  # 4 derniers chiffres
+            "postal_code": sanitized_postal,
+            "phone": sanitized_phone,
+            "street_number": sanitized_street,
+            "street_name": cleaned_street_name
         }
         
         payment = payment_repo.create(payment_data_dict)
@@ -1232,10 +1415,17 @@ def download_invoice_pdf(order_id: str, uid: str = Depends(current_user_id), db:
         if not order or str(order.user_id) != uid:
             raise HTTPException(404, "Commande introuvable")
         
-        # Récupérer la facture
+        # Créer la facture si elle n'existe pas (comme dans get_invoice)
         invoice = invoice_repo.get_by_order_id(order_id)
         if not invoice:
-            raise HTTPException(404, "Facture introuvable")
+            # Créer la facture automatiquement
+            total_cents = sum(item.unit_price_cents * item.quantity for item in order.items)
+            invoice_data = {
+                "order_id": order_id,
+                "user_id": str(order.user_id),
+                "total_cents": total_cents
+            }
+            invoice = invoice_repo.create(invoice_data)
         
         # Récupérer les données nécessaires
         user = order.user
@@ -1292,7 +1482,7 @@ def download_invoice_pdf(order_id: str, uid: str = Depends(current_user_id), db:
         return Response(
             content=pdf_buffer.getvalue(),
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=facture_{order_id[:8]}.pdf"}
+            headers={"Content-Disposition": f"attachment; filename=facture_{order_id[-8:]}.pdf"}
         )
     except HTTPException:
         raise

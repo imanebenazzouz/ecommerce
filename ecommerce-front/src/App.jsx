@@ -84,7 +84,6 @@ function AppContent() {
             <span style={{ color: "#dc2626", fontWeight: "bold" }}>|</span>
             <Link to="/admin" style={{ color: "#dc2626", fontWeight: "bold" }}>⚙️ Administration</Link>
             <Link to="/admin/support" style={{ color: "#dc2626" }}>📞 Support Admin</Link>
-            <Link to="/support-test" style={{ color: "#7c3aed", fontSize: "0.9em" }}>🧪 Debug</Link>
           </>
         )}
 
