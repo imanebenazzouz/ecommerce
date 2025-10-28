@@ -1,7 +1,7 @@
 // src/pages/AdminSupport.jsx
 //
 // Interface de support côté admin: liste fils, lecture et réponses, fermeture.
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 
@@ -14,12 +14,12 @@ export default function AdminSupport() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState("all"); // all, open, closed
 
-  // Charger les threads au montage
+  // Charger les threads quand l'auth est prête et l'utilisateur est admin
   useEffect(() => {
-    if (isAuthenticated() && user?.is_admin) {
+    if (!authLoading && user?.is_admin) {
       loadThreads();
     }
-  }, [isAuthenticated, user]);
+  }, [authLoading, user?.is_admin]);
 
   const loadThreads = async () => {
     try {
@@ -54,16 +54,11 @@ export default function AdminSupport() {
 
     try {
       setError(null);
-      const data = await api.adminPostSupportMessage(selectedThread.id, {
+      await api.adminPostSupportMessage(selectedThread.id, {
         content: newMessage.trim(),
       });
-      
-      // Mettre à jour le thread avec le nouveau message
-      const updatedThread = {
-        ...selectedThread,
-        messages: [...(selectedThread.messages || []), data],
-      };
-      setSelectedThread(updatedThread);
+      // Recharger le thread pour récupérer les données à jour (horodatage, auteur, etc.)
+      await loadThread(selectedThread.id);
       setNewMessage("");
     } catch (err) {
       // Erreur envoi message
@@ -87,9 +82,18 @@ export default function AdminSupport() {
     }
   };
 
-  const formatDate = (timestamp) => {
-    return new Date(timestamp * 1000).toLocaleString("fr-FR");
+  const formatDate = (value) => {
+    const ms = typeof value === "number" ? (value > 1e12 ? value : value * 1000) : Date.parse(value);
+    return Number.isNaN(ms) ? "" : new Date(ms).toLocaleString("fr-FR");
   };
+
+  const short = (v) => (typeof v === "string" ? v.slice(-8) : "");
+
+  // Auto-scroll vers le dernier message
+  const messagesEndRef = useRef(null);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [selectedThread?.messages?.length]);
 
   // Filtrer les threads
   const filteredThreads = threads.filter(thread => {
@@ -109,7 +113,8 @@ export default function AdminSupport() {
     );
   }
 
-  if (!isAuthenticated()) {
+  const authenticated = isAuthenticated();
+  if (!authenticated) {
     return (
       <div style={{ textAlign: "center", padding: 40 }}>
         <h2>Accès refusé</h2>
@@ -117,7 +122,7 @@ export default function AdminSupport() {
         <div style={{ marginTop: 20, padding: 10, background: '#f0f0f0', borderRadius: 5 }}>
           <strong>Debug:</strong><br/>
           Auth Loading: {authLoading.toString()}<br/>
-          Is Authenticated: {isAuthenticated().toString()}<br/>
+          Is Authenticated: {authenticated.toString()}<br/>
           User: {user ? JSON.stringify(user) : 'null'}
         </div>
       </div>
@@ -234,10 +239,10 @@ export default function AdminSupport() {
                     {thread.subject}
                   </div>
                   <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                    Client: {thread.user_id.slice(-8)} • {(thread.messages || []).length} message(s)
+                    Client: {short(thread.user_id)} • {(thread.messages || []).length} message(s)
                   </div>
                   <div style={{ fontSize: 12, color: "#666" }}>
-                    {thread.order_id ? `Commande #${thread.order_id.slice(-8)}` : "Demande générale"}
+                    {thread.order_id ? `Commande #${short(thread.order_id)}` : "Demande générale"}
                     {thread.closed && " • 🔒 Fermé"}
                   </div>
                 </div>
@@ -256,8 +261,8 @@ export default function AdminSupport() {
                   <div>
                     <h3 style={{ margin: 0, marginBottom: 4 }}>{selectedThread.subject}</h3>
                     <div style={{ fontSize: 12, color: "#666" }}>
-                      Client: {selectedThread.user_id.slice(-8)}
-                      {selectedThread.order_id && ` • Commande #${selectedThread.order_id.slice(-8)}`}
+                      Client: {short(selectedThread.user_id)}
+                      {selectedThread.order_id && ` • Commande #${short(selectedThread.order_id)}`}
                       {selectedThread.closed && " • 🔒 Fermé"}
                     </div>
                   </div>
@@ -313,6 +318,7 @@ export default function AdminSupport() {
                         </div>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 )}
               </div>

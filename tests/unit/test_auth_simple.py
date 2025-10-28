@@ -30,8 +30,8 @@ class TestAuthServiceSimple(unittest.TestCase):
         self.assertNotEqual(password, hashed)
         # Vérifier que le hash n'est pas vide
         self.assertTrue(len(hashed) > 0)
-        # Vérifier que le hash contient le préfixe sha256
-        self.assertTrue(hashed.startswith('sha256::'))
+        # Vérifier que le hash contient le préfixe bcrypt ($2b$) ou sha256
+        self.assertTrue(hashed.startswith('$2b$') or hashed.startswith('sha256::'))
     
     def test_verify_password(self):
         """Test la vérification d'un mot de passe"""

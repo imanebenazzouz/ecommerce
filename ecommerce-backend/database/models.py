@@ -107,6 +107,10 @@ class Order(Base):
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     delivery = relationship("Delivery", back_populates="order", uselist=False)
+    
+    def total_cents(self) -> int:
+        """Calcule le total de la commande en centimes."""
+        return sum(item.unit_price_cents * item.quantity for item in self.items)
 
 class OrderItem(Base):
     """Ligne d'une commande, avec snapshot du nom/prix au moment de l'achat."""

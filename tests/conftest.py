@@ -122,3 +122,40 @@ def setup_test_environment():
     # Nettoyage après les tests
     if "TESTING" in os.environ:
         del os.environ["TESTING"]
+
+# --- Fixtures utilitaires E2E ---
+@pytest.fixture
+def api_base_url():
+    return API_BASE_URL
+
+@pytest.fixture
+def token(api_base_url):
+    """Fournit un token JWT valide pour les tests E2E.
+
+    - Tente d'inscrire un utilisateur aléatoire, sinon se connecte
+    - Retourne une chaîne de token (clé "token" si dispo, sinon "access_token")
+    """
+    import requests, os
+    email = f"test{os.urandom(6).hex()}@example.com"
+    password = "password123"
+    user_payload = {
+        "email": email,
+        "password": password,
+        "first_name": "Test",
+        "last_name": "User",
+        "address": "123 Test Street"
+    }
+    try:
+        # Inscription
+        r = requests.post(f"{api_base_url}/auth/register", json=user_payload, timeout=5)
+        if r.status_code == 200:
+            data = r.json()
+            return data.get("token") or data.get("access_token")
+        # Sinon login
+        login_payload = {"email": email, "password": password}
+        r = requests.post(f"{api_base_url}/auth/login", json=login_payload, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("token") or data.get("access_token")
+    except Exception:
+        pytest.skip("API non disponible pour les tests E2E (localhost:8000)")

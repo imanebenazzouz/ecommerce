@@ -38,7 +38,20 @@ class PostgreSQLUserRepository:
     
     def create(self, user_data: Dict[str, Any]) -> User:
         """Crée un nouvel utilisateur"""
-        user = User(**user_data)
+        # Normaliser les données d'entrée: accepter "password" et le convertir en password_hash
+        data: Dict[str, Any] = dict(user_data)
+        if "password" in data and "password_hash" not in data:
+            try:
+                # Import local pour éviter dépendances circulaires au chargement
+                from services.auth_service import AuthService  # type: ignore
+                hashed = AuthService().hash_password(str(data.pop("password")))
+                data["password_hash"] = hashed
+            except Exception:
+                # En dernier recours, stocker un hash SHA-256 compatible
+                import hashlib
+                pwd = str(data.pop("password"))
+                data["password_hash"] = f"sha256::{hashlib.sha256(pwd.encode('utf-8')).hexdigest()}"
+        user = User(**data)
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
@@ -195,8 +208,13 @@ class PostgreSQLCartRepository:
             existing_item.quantity += quantity
             self.db.commit()
         else:
-            # Ajouter une fois et laisser le test vérifier un seul add global (le cart a déjà été ajouté plus tôt dans un autre test step)
-            # Ici, on n'appelle pas add() pour éviter un deuxième appel dans ce test précis
+            # Créer un nouvel article de panier
+            cart_item = CartItem(
+                cart_id=cart.id,
+                product_id=pid,
+                quantity=quantity
+            )
+            self.db.add(cart_item)
             self.db.commit()
         return True
     
@@ -205,8 +223,6 @@ class PostgreSQLCartRepository:
         try:
             uid = _uuid_or_raw(user_id)
             pid = _uuid_or_raw(product_id)
-            if quantity <= 0:
-                return False
             cart = self.get_by_user_id(user_id)
             if not cart:
                 return False
@@ -343,6 +359,49 @@ class PostgreSQLOrderRepository:
         self.db.commit()
         self.db.refresh(order_item)
         return order_item
+
+class PostgreSQLDeliveryRepository:
+    """Gestion des livraisons (création, récupération, mise à jour)."""
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def create(self, delivery_data: Dict[str, Any]) -> Delivery:
+        """Crée une nouvelle livraison"""
+        delivery = Delivery(**delivery_data)
+        self.db.add(delivery)
+        self.db.commit()
+        self.db.refresh(delivery)
+        return delivery
+    
+    def get_by_id(self, delivery_id: str) -> Optional[Delivery]:
+        """Récupère une livraison par ID"""
+        did = _uuid_or_raw(delivery_id)
+        return self.db.query(Delivery).filter(Delivery.id == did).first()
+    
+    def get_by_order_id(self, order_id: str) -> Optional[Delivery]:
+        """Récupère une livraison par ID de commande"""
+        oid = _uuid_or_raw(order_id)
+        return self.db.query(Delivery).filter(Delivery.order_id == oid).first()
+    
+    def get_all(self) -> List[Delivery]:
+        """Récupère toutes les livraisons"""
+        return self.db.query(Delivery).all()
+    
+    def update(self, delivery: Delivery) -> Delivery:
+        """Met à jour une livraison"""
+        self.db.commit()
+        self.db.refresh(delivery)
+        return delivery
+    
+    def delete(self, delivery_id: str) -> bool:
+        """Supprime une livraison"""
+        delivery = self.get_by_id(delivery_id)
+        if not delivery:
+            return False
+        
+        self.db.delete(delivery)
+        self.db.commit()
+        return True
 
 class PostgreSQLInvoiceRepository:
     """Gestion des factures (création, récupération par id/commande)."""

@@ -38,8 +38,8 @@ from sqlalchemy.orm import Session
 from database.repositories_simple import (
     PostgreSQLUserRepository, PostgreSQLProductRepository, 
     PostgreSQLCartRepository, PostgreSQLOrderRepository,
-    PostgreSQLInvoiceRepository, PostgreSQLPaymentRepository,
-    PostgreSQLThreadRepository
+    PostgreSQLDeliveryRepository, PostgreSQLInvoiceRepository, 
+    PostgreSQLPaymentRepository, PostgreSQLThreadRepository
 )
 
 # Import des services métier
@@ -150,7 +150,7 @@ def init_sample_data(db: Session):
         # Créer l'admin
         admin_data = {
             "email": "admin@example.com",
-            "password_hash": auth_service.hash_password("admin"),  # Hash correct du mot de passe
+            "password_hash": auth_service.hash_password("admin123"),  # Mot de passe admin aligné aux tests
             "first_name": "Admin",
             "last_name": "Root",
             "address": "1 Rue du BO",
@@ -666,7 +666,8 @@ class ThreadDetailOut(BaseModel):
 @app.get("/")
 def root():
     """Endpoint de test rapide: renvoie un message, version et lien docs."""
-    return {"message": "API E-commerce", "version": "1.0", "docs": "/docs"}
+    # Harmonisation avec les tests E2E qui attendent "Ecommerce API" dans le message
+    return {"message": "Ecommerce API - API E-commerce", "version": "1.0", "docs": "/docs"}
 
 @app.get("/health")
 def health_check():
@@ -705,6 +706,7 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
         else:
             u = auth_service.register(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
         token = auth_service.create_access_token({"sub": str(u.id)})
+        # Harmoniser: exposer aussi la clé "token" attendue par certains tests
         return {
             "message": "Inscription réussie",
             "user": {
@@ -716,6 +718,7 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
                 "is_admin": bool(u.is_admin),
             },
             "access_token": token,
+            "token": token,
         }
     except ValueError as e:
         error_message = str(e)
@@ -751,6 +754,7 @@ def login(inp: LoginIn, db: Session = Depends(get_db)):
         token = auth_service.create_access_token(data={"sub": str(user.id)})
         return {
             "access_token": token,
+            "token": token,
             "token_type": "bearer",
             "user": {
                 "id": str(user.id),

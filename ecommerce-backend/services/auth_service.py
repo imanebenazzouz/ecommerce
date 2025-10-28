@@ -43,26 +43,31 @@ class AuthService:
         self.sessions = SessionManager()
     
     def hash_password(self, password: str) -> str:
-        """Calcule un hash de mot de passe.
-
-        Compatibilité tests: renvoie un hash au format 'sha256::<hex>'.
-        """
-        sha = hashlib.sha256(password.encode('utf-8')).hexdigest()
-        return f"sha256::{sha}"
+        """Calcule un hash de mot de passe sécurisé (bcrypt)."""
+        try:
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+            return hashed.decode("utf-8")
+        except Exception:
+            # Fallback SHA-256 si bcrypt indisponible
+            sha = hashlib.sha256(password.encode('utf-8')).hexdigest()
+            return f"sha256::{sha}"
     
     def verify_password(self, password: str, hashed_password: str) -> bool:
         """Vérifie qu'un mot de passe correspond au hash enregistré.
 
-        Supporte les formats 'sha256::' (compat) et bcrypt (fallback).
+        Priorise bcrypt pour la sécurité, avec fallback SHA-256 pour les tests.
         """
         try:
+            # Essayer bcrypt en premier (plus sécurisé)
+            if isinstance(hashed_password, str) and not hashed_password.startswith('sha256::'):
+                return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+            
+            # Fallback SHA-256 pour les tests
             if isinstance(hashed_password, str) and hashed_password.startswith('sha256::'):
                 expected = hashed_password.split('::', 1)[1]
                 return hashlib.sha256(password.encode('utf-8')).hexdigest() == expected
-            # Fallback bcrypt (pour compat application)
-            if isinstance(hashed_password, str):
-                return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
-            # Si mock ou type inattendu
+            
             return False
         except Exception:
             return False
@@ -122,3 +127,7 @@ class AuthService:
             "is_admin": False
         }
         return self.user_repo.create(user_data)
+
+    # Alias attendu par certains tests unitaires
+    def register_user(self, email: str, password: str, first_name: str, last_name: str, address: str) -> User:
+        return self.register(email, password, first_name, last_name, address)
