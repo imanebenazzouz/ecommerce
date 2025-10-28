@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
+// Variante légère du provider d'authentification utilisée par certaines pages.
 import { api } from '../lib/api';
 import { AuthContext } from './AuthContext';
 
+/**
+ * Provider d'authentification minimal (token localStorage + api.me()).
+ * @param {{children: React.ReactNode}} props
+ * @returns {JSX.Element}
+ */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -1,3 +1,9 @@
+"""
+API FastAPI (variante SQLite) pour environnement léger/local.
+
+Objectif: fournir une implémentation autonome (fichier .db) pour tests rapides
+ou démonstrations sans PostgreSQL. Non destinée à la production.
+"""
 # api_sqlite.py - Version SQLite pour éviter les problèmes PostgreSQL
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware

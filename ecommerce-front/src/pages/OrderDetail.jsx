@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+// Page détail d'une commande: lignes, résumé, facture PDF et annulation.
 import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

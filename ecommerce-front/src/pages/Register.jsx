@@ -1,4 +1,6 @@
 // src/pages/Register.jsx
+//
+// Page d'inscription avec validations de nom et d'adresse côté client.
 import React, { useState } from "react";
 import { api } from "../lib/api";
 import { validateAddress, validateName } from "../utils/validations";

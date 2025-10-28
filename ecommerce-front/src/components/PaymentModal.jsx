@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+// Modal de paiement avec validations enrichies et feedback utilisateur.
 import { api } from "../lib/api";
 import {
   validateCardNumber,
@@ -12,6 +13,16 @@ import {
   formatCardNumber
 } from "../utils/validations";
 
+/**
+ * Fenêtre modale de paiement carte.
+ * @param {Object} props
+ * @param {string} props.orderId - Identifiant de commande à payer
+ * @param {number} props.amountCents - Montant en centimes
+ * @param {(result: object) => void} props.onSuccess - Callback succès paiement
+ * @param {() => void} props.onCancel - Callback fermeture/annulation
+ * @param {boolean} props.isOpen - Affichage de la modale
+ * @returns {JSX.Element|null}
+ */
 export default function PaymentModal({ 
   orderId, 
   amountCents, 

@@ -1,4 +1,6 @@
 // src/pages/Admin.jsx
+//
+// Espace administrateur: CRUD produits et consultation/gestion des commandes.
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";

@@ -1,0 +1,262 @@
+/* Legal Pages Styles */
+.legal-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #1f2937;
+  line-height: 1.7;
+}
+
+.legal-container {
+  background: white;
+  border-radius: 12px;
+  padding: 50px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.legal-page h1 {
+  font-size: 2.5rem;
+  color: #111827;
+  margin-bottom: 10px;
+  font-weight: 700;
+  border-bottom: 3px solid #3b82f6;
+  padding-bottom: 15px;
+}
+
+.last-update {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin-bottom: 40px;
+}
+
+.legal-section {
+  margin-bottom: 40px;
+}
+
+.legal-section h2 {
+  font-size: 1.8rem;
+  color: #1f2937;
+  margin-top: 40px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  border-left: 4px solid #3b82f6;
+  padding-left: 15px;
+}
+
+.legal-section h3 {
+  font-size: 1.3rem;
+  color: #374151;
+  margin-top: 25px;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.legal-section p {
+  margin-bottom: 15px;
+  text-align: justify;
+}
+
+.legal-section ul {
+  margin-left: 30px;
+  margin-bottom: 20px;
+}
+
+.legal-section li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.legal-section ol {
+  margin-left: 30px;
+  margin-bottom: 20px;
+}
+
+.legal-section ol li {
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+.legal-section a {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.legal-section a:hover {
+  border-bottom-color: #3b82f6;
+}
+
+.legal-section strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Tables for cookies */
+.cookie-table {
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.cookie-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.cookie-table th {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+  padding: 15px;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.cookie-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+}
+
+.cookie-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cookie-table tr:hover {
+  background: #f9fafb;
+}
+
+/* Retractation form */
+.retractation-form {
+  background: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  padding: 25px;
+  margin: 25px 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.retractation-form p {
+  margin-bottom: 15px;
+}
+
+.retractation-form ul {
+  list-style: none;
+  padding: 0;
+  margin-left: 0;
+}
+
+.retractation-form li {
+  margin-bottom: 12px;
+}
+
+/* Address box */
+.address-box {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  padding: 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+}
+
+.address-box p {
+  margin: 5px 0;
+  line-height: 1.8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .legal-container {
+    padding: 30px 20px;
+    border-radius: 0;
+  }
+
+  .legal-page h1 {
+    font-size: 2rem;
+  }
+
+  .legal-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .legal-section h3 {
+    font-size: 1.2rem;
+  }
+
+  .legal-section p {
+    text-align: left;
+  }
+
+  .cookie-table {
+    font-size: 0.85rem;
+  }
+
+  .cookie-table th,
+  .cookie-table td {
+    padding: 10px 8px;
+  }
+
+  .retractation-form {
+    padding: 15px;
+    font-size: 0.85rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .legal-page {
+    padding: 0;
+  }
+
+  .legal-container {
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .legal-section a {
+    color: #000;
+    text-decoration: underline;
+  }
+}
+
+/* Highlight boxes */
+.highlight-box {
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+}
+
+.info-box {
+  background: #dbeafe;
+  border-left: 4px solid #3b82f6;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+}
+
+.warning-box {
+  background: #fee2e2;
+  border-left: 4px solid #ef4444;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+}
+
+.success-box {
+  background: #d1fae5;
+  border-left: 4px solid #10b981;
+  padding: 15px 20px;
+  margin: 20px 0;
+  border-radius: 4px;
+}
+

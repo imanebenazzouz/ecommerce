@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+// Détail de commande (admin): actions de validation, expédition et livraison.
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 

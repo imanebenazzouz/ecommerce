@@ -1,5 +1,9 @@
 """
-Configuration de la base de données PostgreSQL
+Configuration de la base de données PostgreSQL.
+
+Expose un moteur SQLAlchemy, une fabrique de sessions, et utilitaires de cycle
+de vie (création/suppression des tables). Les paramètres de pool sont réglés
+pour un service web classique.
 """
 
 import os
@@ -25,7 +29,7 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
-    """Générateur de session de base de données"""
+    """Dépendance FastAPI: fournit une session DB et assure sa fermeture."""
     db = SessionLocal()
     try:
         yield db
@@ -33,9 +37,9 @@ def get_db():
         db.close()
 
 def create_tables():
-    """Crée toutes les tables dans la base de données"""
+    """Crée toutes les tables déclarées par les modèles SQLAlchemy."""
     Base.metadata.create_all(bind=engine)
 
 def drop_tables():
-    """Supprime toutes les tables de la base de données"""
+    """Supprime toutes les tables de la base de données (opération destructive)."""
     Base.metadata.drop_all(bind=engine)

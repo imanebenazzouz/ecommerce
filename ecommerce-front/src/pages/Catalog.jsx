@@ -1,4 +1,6 @@
 // src/pages/Catalog.jsx
+//
+// Page d'accueil avec liste des produits et ajout au panier (local ou serveur).
 import React, { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

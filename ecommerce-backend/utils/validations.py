@@ -1,36 +1,24 @@
 """
-Utilitaires de validation pour les paiements et données numériques
-Toutes les validations retournent des messages d'erreur en français
+Utilitaires de validation pour les paiements et données numériques.
+
+Contrats:
+- Toutes les fonctions retournent `(is_valid: bool, message: str)` quand applicable
+- Les messages d'erreur sont en français (UI cohérente)
+- `sanitize_numeric` supprime tous les caractères non numériques
 """
 import re
 from typing import Tuple
 
 
 def sanitize_numeric(value: str) -> str:
-    """
-    Nettoie une chaîne en supprimant tous les caractères non numériques
-    
-    Args:
-        value: La chaîne à nettoyer
-        
-    Returns:
-        La chaîne ne contenant que des chiffres
-    """
+    """Supprime tous les caractères non numériques d'une chaîne."""
     if not isinstance(value, str):
         return ""
     return re.sub(r'\D', '', value)
 
 
 def validate_luhn(card_number: str) -> bool:
-    """
-    Valide un numéro de carte bancaire avec l'algorithme de Luhn
-    
-    Args:
-        card_number: Le numéro de carte (peut contenir espaces/tirets)
-        
-    Returns:
-        True si le numéro est valide selon Luhn
-    """
+    """Vérifie un numéro de carte via l'algorithme de Luhn (True si valide)."""
     sanitized = sanitize_numeric(card_number)
     if not sanitized:
         return False
@@ -59,15 +47,7 @@ def validate_luhn(card_number: str) -> bool:
 
 
 def validate_card_number(card_number: str) -> Tuple[bool, str]:
-    """
-    Valide un numéro de carte bancaire (13-19 chiffres + Luhn obligatoire)
-    
-    Args:
-        card_number: Le numéro de carte
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Numéro de carte: 13–19 chiffres + Luhn obligatoire."""
     sanitized = sanitize_numeric(card_number)
     
     # Vérifier la longueur (13 à 19 chiffres)
@@ -82,15 +62,7 @@ def validate_card_number(card_number: str) -> Tuple[bool, str]:
 
 
 def validate_cvv(cvv: str) -> Tuple[bool, str]:
-    """
-    Valide un CVV/CVC (3 ou 4 chiffres)
-    
-    Args:
-        cvv: Le code CVV
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """CVV/CVC: 3 ou 4 chiffres."""
     sanitized = sanitize_numeric(cvv)
     
     if not re.match(r'^[0-9]{3,4}$', sanitized):
@@ -100,15 +72,7 @@ def validate_cvv(cvv: str) -> Tuple[bool, str]:
 
 
 def validate_expiry_month(month: int) -> Tuple[bool, str]:
-    """
-    Valide un mois d'expiration (1-12)
-    
-    Args:
-        month: Le mois (1-12)
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Mois d'expiration: entier 1–12."""
     if not isinstance(month, int) or month < 1 or month > 12:
         return False, "Le mois doit être entre 01 et 12."
     
@@ -116,15 +80,7 @@ def validate_expiry_month(month: int) -> Tuple[bool, str]:
 
 
 def validate_expiry_year(year: int) -> Tuple[bool, str]:
-    """
-    Valide une année d'expiration (format YYYY >= année actuelle)
-    
-    Args:
-        year: L'année (YYYY)
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Année d'expiration: YYYY entre 2000 et 2100 (borne large)."""
     if not isinstance(year, int) or year < 2000 or year > 2100:
         return False, "L'année doit être au format YYYY (entre 2000 et 2100)."
     
@@ -132,16 +88,7 @@ def validate_expiry_year(year: int) -> Tuple[bool, str]:
 
 
 def validate_expiry_date(month: int, year: int) -> Tuple[bool, str]:
-    """
-    Valide une date d'expiration complète (doit être postérieure au mois actuel)
-    
-    Args:
-        month: Le mois (1-12)
-        year: L'année (YYYY)
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Date d'expiration complète: doit être dans le futur (>= mois courant)."""
     from datetime import datetime
     
     # Valider le mois
@@ -166,15 +113,7 @@ def validate_expiry_date(month: int, year: int) -> Tuple[bool, str]:
 
 
 def validate_postal_code(postal_code: str) -> Tuple[bool, str]:
-    """
-    Valide un code postal français (5 chiffres)
-    
-    Args:
-        postal_code: Le code postal
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Code postal français: 5 chiffres."""
     sanitized = sanitize_numeric(postal_code)
     
     if not re.match(r'^[0-9]{5}$', sanitized):
@@ -184,15 +123,7 @@ def validate_postal_code(postal_code: str) -> Tuple[bool, str]:
 
 
 def validate_phone(phone: str) -> Tuple[bool, str]:
-    """
-    Valide un numéro de téléphone français (10 chiffres, commence par 01-09)
-    
-    Args:
-        phone: Le numéro de téléphone
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Téléphone FR: 10 chiffres, commence par 01–09."""
     sanitized = sanitize_numeric(phone)
     
     if not re.match(r'^[0-9]{10}$', sanitized):
@@ -206,15 +137,7 @@ def validate_phone(phone: str) -> Tuple[bool, str]:
 
 
 def validate_street_number(street_number: str) -> Tuple[bool, str]:
-    """
-    Valide un numéro de rue (chiffres uniquement, au moins 1)
-    
-    Args:
-        street_number: Le numéro de rue
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Numéro de rue: chiffres uniquement (>= 1 char)."""
     if not isinstance(street_number, str) or not street_number:
         return False, "Numéro de rue : chiffres uniquement."
     
@@ -226,15 +149,7 @@ def validate_street_number(street_number: str) -> Tuple[bool, str]:
 
 
 def validate_street_name(street_name: str) -> Tuple[bool, str]:
-    """
-    Valide un nom de rue (lettres, espaces, tirets, apostrophes - 3 à 100 caractères)
-    
-    Args:
-        street_name: Le nom de rue
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Nom de rue: lettres/chiffres/espaces/tirets/apostrophes, 3–100 caractères."""
     if not street_name or not isinstance(street_name, str):
         return False, "Nom de rue requis."
     
@@ -261,15 +176,7 @@ def validate_street_name(street_name: str) -> Tuple[bool, str]:
 
 
 def validate_quantity(quantity: int) -> Tuple[bool, str]:
-    """
-    Valide une quantité (entier >= 1)
-    
-    Args:
-        quantity: La quantité
-        
-    Returns:
-        Tuple (is_valid, error_message)
-    """
+    """Quantité: entier >= 1."""
     if not isinstance(quantity, int) or quantity < 1:
         return False, "Quantité invalide."
     

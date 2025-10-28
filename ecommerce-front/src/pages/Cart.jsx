@@ -1,4 +1,6 @@
 // src/pages/Cart.jsx
+//
+// Panier avec fallback local: incrément, décrément, vidage, checkout + paiement.
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../lib/api";

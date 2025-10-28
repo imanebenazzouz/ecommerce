@@ -1,7 +1,16 @@
 import React from 'react';
+// Garde de route: impose l'authentification et/ou le rôle admin.
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 
+/**
+ * Protège une route en imposant l'authentification et/ou le rôle admin.
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Contenu à rendre si conditions OK
+ * @param {boolean} [props.requireAuth=true] - Exige d'être connecté
+ * @param {boolean} [props.requireAdmin=false] - Exige le rôle administrateur
+ * @returns {JSX.Element}
+ */
 export default function ProtectedRoute({ children, requireAuth = true, requireAdmin = false }) {
   const { isAuthenticated, isAdmin, loading, user } = useAuth();
 

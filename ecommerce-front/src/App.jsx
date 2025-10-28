@@ -1,9 +1,12 @@
 // src/App.jsx
+//
+// Point d'entrée UI: fournit AuthProvider, routes, et navigation principale.
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Link } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthProvider";
 import { useAuth } from "./hooks/useAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Footer from "./components/Footer";
 import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -16,8 +19,21 @@ import AdminOrderDetail from "./pages/AdminOrderDetail";
 import Support from "./pages/Support";
 import AdminSupport from "./pages/AdminSupport";
 import SupportTest from "./pages/SupportTest";
+import FAQ from "./pages/FAQ";
+import CGV from "./pages/legal/CGV";
+import MentionsLegales from "./pages/legal/MentionsLegales";
+import Confidentialite from "./pages/legal/Confidentialite";
+import Cookies from "./pages/legal/Cookies";
+import Retractation from "./pages/legal/Retractation";
+import Livraison from "./pages/Livraison";
+import PaiementSecurise from "./pages/PaiementSecurise";
+import Garanties from "./pages/Garanties";
 import "./styles/global.css";
 
+/**
+ * Contenu principal de l'application avec navigation et routes protégées.
+ * @returns {JSX.Element}
+ */
 function AppContent() {
   const { user, logout, isAuthenticated, loading } = useAuth();
   const [role, setRole] = useState(() => localStorage.getItem("role"));
@@ -178,11 +194,28 @@ function AppContent() {
             <AdminSupport />
           </ProtectedRoute>
         } />
+
+        {/* ✅ Pages légales et informations */}
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/legal/cgv" element={<CGV />} />
+        <Route path="/legal/mentions-legales" element={<MentionsLegales />} />
+        <Route path="/legal/confidentialite" element={<Confidentialite />} />
+        <Route path="/legal/cookies" element={<Cookies />} />
+        <Route path="/legal/retractation" element={<Retractation />} />
+        <Route path="/livraison" element={<Livraison />} />
+        <Route path="/paiement-securise" element={<PaiementSecurise />} />
+        <Route path="/garanties" element={<Garanties />} />
       </Routes>
+
+      <Footer />
     </div>
   );
 }
 
+/**
+ * Racine de l'application: encapsule AppContent dans AuthProvider.
+ * @returns {JSX.Element}
+ */
 export default function App() {
   return (
     <AuthProvider>

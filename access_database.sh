@@ -1,4 +1,17 @@
 #!/bin/bash
+# Script d'accès à la base de données PostgreSQL
+# ===============================================
+#
+# Ce script fournit les informations de connexion et les commandes utiles
+# pour accéder à la base de données PostgreSQL de l'e-commerce en production.
+#
+# Fonctionnalités :
+# - Affiche les informations de connexion
+# - Fournit les commandes psql et Docker
+# - Teste la connectivité à la base
+# - Liste les tables disponibles
+#
+# Usage : ./access_database.sh
 
 echo "🗄️ Accès à la base de données PostgreSQL"
 echo "========================================"

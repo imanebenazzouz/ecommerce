@@ -1,5 +1,8 @@
 """
-Enums pour l'application e-commerce
+Enums pour l'application e‑commerce.
+
+Ces énumérations normalisent les statuts utilisés dans l'API, les modèles et
+les repositories, afin d'éviter les chaînes magiques et faciliter la maintenance.
 """
 
 from enum import Enum

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+// Page listant les commandes de l'utilisateur avec actions (annuler, facture).
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

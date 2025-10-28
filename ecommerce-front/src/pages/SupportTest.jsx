@@ -1,4 +1,6 @@
 // src/pages/SupportTest.jsx
+//
+// Page de test pour le support: affichage debug et rechargement des fils.
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

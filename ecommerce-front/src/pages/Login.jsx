@@ -1,4 +1,6 @@
 // src/pages/Login.jsx
+//
+// Page de connexion: authentifie l'utilisateur et synchronise le panier local.
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";

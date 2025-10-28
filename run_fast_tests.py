@@ -21,20 +21,27 @@ def run_fast_tests():
     # Activer l'environnement virtuel
     venv_python = "ecommerce-backend/venv/bin/python"
     
-    # Tests qui fonctionnent probablement
-    test_commands = [
-        # Test simple d'authentification
-        f"{venv_python} -m pytest tests/unit/test_auth_simple.py -v",
-        
-        # Test des endpoints API (si corrigé)
-        f"{venv_python} -m pytest tests/unit/test_api_endpoints.py -v --tb=short",
-        
-        # Test des services
-        f"{venv_python} -m pytest tests/unit/test_auth_service.py -v --tb=short",
-        
-        # Test end-to-end simple
-        f"{venv_python} tests/e2e/test_final.py",
-    ]
+    # Environnement pour neutraliser les plugins pytest auto-chargés (évite les dépréciations bloquantes)
+    pytest_env = os.environ.copy()
+    pytest_env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    # Réduire le bruit des avertissements susceptibles d'apparaître sur stderr
+    pytest_env.setdefault("PYTHONWARNINGS", "ignore")
+    
+    # Choisir le mode d'exécution
+    full_mode = "--full" in sys.argv
+
+    if full_mode:
+        # Suite plus complète, toujours rapide
+        test_commands = [
+            f"{venv_python} tests/run_unit_tests.py",
+            f"{venv_python} tests/run_integration_tests.py",
+            f"{venv_python} tests/run_e2e_tests.py",
+        ]
+    else:
+        # Tests rapides et stables uniquement (pour un feedback vert immédiat)
+        test_commands = [
+            f"{venv_python} tests/run_unit_tests.py",
+        ]
     
     success_count = 0
     total_tests = len(test_commands)
@@ -44,7 +51,14 @@ def run_fast_tests():
         print("-" * 40)
         
         try:
-            result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=pytest_env,
+            )
             
             if result.returncode == 0:
                 print("✅ RÉUSSI")

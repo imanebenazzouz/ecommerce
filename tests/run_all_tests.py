@@ -39,21 +39,24 @@ def main():
     test_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(test_dir)
     
+    # Utiliser l'exécutable Python courant (compat macOS où 'python' peut être absent)
+    exe = sys.executable or "python3"
+
     # Tests unitaires
     unit_success = run_command(
-        "python run_unit_tests.py",
+        f"{exe} run_unit_tests.py",
         "TESTS UNITAIRES"
     )
     
     # Tests d'intégration
     integration_success = run_command(
-        "python run_integration_tests.py",
+        f"{exe} run_integration_tests.py",
         "TESTS D'INTÉGRATION"
     )
     
     # Tests end-to-end
     e2e_success = run_command(
-        "python run_e2e_tests.py",
+        f"{exe} run_e2e_tests.py",
         "TESTS END-TO-END"
     )
     

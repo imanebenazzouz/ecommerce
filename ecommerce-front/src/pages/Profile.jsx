@@ -1,4 +1,6 @@
 // src/pages/Profile.jsx
+//
+// Page profil: affichage/modification du prénom, nom et adresse avec validations.
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";

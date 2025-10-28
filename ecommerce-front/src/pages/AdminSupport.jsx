@@ -1,4 +1,6 @@
 // src/pages/AdminSupport.jsx
+//
+// Interface de support côté admin: liste fils, lecture et réponses, fermeture.
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

@@ -1,3 +1,9 @@
+"""
+API FastAPI PostgreSQL simplifiée.
+
+Variante pédagogique sans JWT complet ni hashing avancé, utile pour tests
+locaux. Les endpoints couvrent auth légère, catalogue, panier et commandes.
+"""
 # api_postgres_simple.py
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware

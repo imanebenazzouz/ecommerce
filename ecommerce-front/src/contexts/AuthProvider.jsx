@@ -1,8 +1,13 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
+// Contexte d'authentification complet avec persistance localStorage et API.
 import { api } from '../lib/api';
+import { AuthContext } from './AuthContext';
 
-const AuthContext = createContext();
-
+/**
+ * Provider d'authentification global.
+ * @param {{children: React.ReactNode}} props
+ * @returns {JSX.Element}
+ */
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);

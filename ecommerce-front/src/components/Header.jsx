@@ -1,9 +1,16 @@
 // src/components/Header.jsx
+//
+// En-tête principal du site: navigation, état auth et action de déconnexion.
+// N'affiche connexion/inscription si non authentifié, sinon bouton déconnexion.
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { setToken as apiSetToken } from "../lib/api"; // si tu l'as
 
+/**
+ * En-tête applicatif avec navigation et actions d'authentification.
+ * @returns {JSX.Element}
+ */
 export default function Header() {
   const { isAuthenticated, logout, loading } = useAuth();
   const navigate = useNavigate();

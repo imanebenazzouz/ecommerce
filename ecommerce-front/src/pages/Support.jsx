@@ -1,4 +1,6 @@
 // src/pages/Support.jsx
+//
+// Support client: création de fils, lecture, réponses, marquage comme lu.
 import React, { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";

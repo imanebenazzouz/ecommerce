@@ -1,8 +1,21 @@
 #!/bin/bash
-set -e
+# Script de déploiement simplifié pour l'e-commerce
+# ================================================
+#
+# Version simplifiée du déploiement pour les tests rapides :
+# 1. Vérifie Docker et Docker Compose
+# 2. Arrête les services existants
+# 3. Nettoie les images inutilisées
+# 4. Construit et démarre les services
+# 5. Affiche les informations d'accès
+#
+# Prérequis :
+# - Docker et Docker Compose installés
+# - Fichier docker-compose.prod.yml configuré
+#
+# Usage : ./deploy_simple.sh
 
-echo "🚀 Déploiement simple de l'e-commerce pour Yannis"
-echo "=================================================="
+set -e
 
 # Couleurs
 GREEN='\033[0;32m'

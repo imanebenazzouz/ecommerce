@@ -1,7 +1,23 @@
 #!/bin/bash
-
-# Script de démarrage unifié pour l'e-commerce
-# Usage: ./start.sh [backend|frontend|all]
+# Script de démarrage unifié pour l'e-commerce en développement
+# ==============================================================
+#
+# Ce script permet de démarrer l'application en mode développement :
+# - Backend : API FastAPI avec hot-reload sur port 8000
+# - Frontend : Application React avec Vite sur port 5173
+# - Base de données : PostgreSQL via Docker si nécessaire
+#
+# Fonctionnalités :
+# - Détection automatique des ports occupés
+# - Installation automatique des dépendances
+# - Gestion des environnements virtuels Python
+# - Démarrage de PostgreSQL via Docker si nécessaire
+#
+# Usage :
+#   ./start.sh backend   # Démarrer uniquement l'API
+#   ./start.sh frontend # Démarrer uniquement React
+#   ./start.sh all      # Démarrer les deux (défaut)
+#   ./start.sh help     # Afficher l'aide
 
 set -e
 

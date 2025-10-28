@@ -1,16 +1,45 @@
 // src/lib/api.js
+//
+// Frontend HTTP client for the ecommerce API.
+// - Centralizes fetch calls with consistent error handling
+// - Injects bearer token when available
+// - Exposes typed-like JSDoc for better IDE help and self-documentation
+//
+/**
+ * Base URL of the backend API. Overridable via Vite env `VITE_API_BASE`.
+ * Example: https://api.example.com
+ * @type {string}
+ */
 const API = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
 
 // --- Token helpers ---
+/**
+ * Read the JWT token from localStorage.
+ * @returns {string|null}
+ */
 function getToken() {
   return localStorage.getItem("token");
 }
+/**
+ * Persist or clear the JWT token in localStorage.
+ * @param {string|null|undefined} t
+ *   A non-empty string stores the token, otherwise it clears it.
+ */
 export function setToken(t) {
   if (t) localStorage.setItem("token", t);
   else localStorage.removeItem("token");
 }
 
 // --- HTTP helper ---
+/**
+ * Low-level HTTP request wrapper adding JSON headers and auth when available.
+ * Parses JSON when possible, otherwise returns raw text. Throws Error on !ok.
+ *
+ * @template T
+ * @param {string} path - API path beginning with '/'
+ * @param {RequestInit} [init]
+ * @returns {Promise<T>}
+ */
 async function request(path, init = {}) {
   const token = getToken();
   const headers = {
@@ -25,7 +54,7 @@ async function request(path, init = {}) {
     headers,
   });
 
-  // Essaye de lire la réponse (JSON ou texte simple)
+  // Try to read response (JSON first, fallback to plain text)
   let payload = null;
   const text = await res.text();
   if (text) {
@@ -51,6 +80,7 @@ async function request(path, init = {}) {
       msg = `Erreur HTTP ${res.status}`;
     }
     
+    /** @type {Error & {status?: number, payload?: unknown}} */
     const err = new Error(msg);
     err.status = res.status;
     err.payload = payload;
@@ -63,7 +93,11 @@ async function request(path, init = {}) {
    AUTH
    ========================= */
 
-// POST /auth/register
+/**
+ * Register a new user account.
+ * @param {{email:string,password:string,first_name:string,last_name:string,address?:string}} params
+ * @returns {Promise<object>}
+ */
 async function register({ email, password, first_name, last_name, address }) {
   return request("/auth/register", {
     method: "POST",
@@ -71,15 +105,19 @@ async function register({ email, password, first_name, last_name, address }) {
   });
 }
 
-// POST /auth/login → { token }  (+ /auth/me pour le rôle)
+/**
+ * Login with credentials, store token, then fetch current user via /auth/me.
+ * @param {{email:string,password:string}} params
+ * @returns {Promise<{token:string,user:object}>}
+ */
 async function login({ email, password }) {
   const response = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
   
-  // Le backend retourne { token }
-  const token = response.token;
+  // Le backend retourne { access_token, token_type, user }
+  const token = response.access_token;
   setToken(token);
 
   // récupère l'utilisateur courant (contient is_admin)
@@ -95,12 +133,20 @@ async function login({ email, password }) {
   return { token, user };
 }
 
-// GET /auth/me → { id, email, first_name, last_name, address, is_admin }
+/**
+ * Get current authenticated user.
+ * @returns {Promise<{id:string,email:string,first_name:string,last_name:string,address?:string,is_admin:boolean}>}
+ */
 async function me() {
-  return request("/auth/me");
+  // Endpoint backend: /me (pas /auth/me)
+  return request("/me");
 }
 
-// PUT /auth/profile → met à jour { first_name?, last_name?, address? }
+/**
+ * Update the authenticated user's profile.
+ * @param {{first_name?:string,last_name?:string,address?:string}} params
+ * @returns {Promise<object>}
+ */
 async function updateProfile({ first_name, last_name, address }) {
   const body = {};
   if (first_name !== undefined) body.first_name = first_name;
@@ -109,7 +155,10 @@ async function updateProfile({ first_name, last_name, address }) {
   return request("/auth/profile", { method: "PUT", body: JSON.stringify(body) });
 }
 
-// POST /auth/logout
+/**
+ * Logout the current user and clear token locally even if remote call fails.
+ * @returns {Promise<void>}
+ */
 async function logout() {
   try {
     await request("/auth/logout", { method: "POST" });
@@ -122,11 +171,19 @@ async function logout() {
    CATALOGUE (public)
    ========================= */
 
-// GET /products
+/**
+ * List all products (public catalog).
+ * @returns {Promise<Array<object>>}
+ */
 async function listProducts() {
   return request("/products");
 }
 
+/**
+ * Get product details by id.
+ * @param {string} productId
+ * @returns {Promise<object>}
+ */
 async function getProduct(productId) {
   return request(`/products/${productId}`);
 }
@@ -135,7 +192,10 @@ async function getProduct(productId) {
    PANIER & COMMANDES (user)
    ========================= */
 
-// GET /cart
+/**
+ * Retrieve the authenticated user's cart.
+ * @returns {Promise<object>}
+ */
 async function viewCart() {
   return request("/cart");
 }
@@ -143,12 +203,20 @@ async function viewCart() {
 // alias pour compat avec ton code existant
 const getCart = viewCart;
 
-// POST /cart/add  { product_id, qty }
+/**
+ * Add a product to cart.
+ * @param {{product_id:string, qty?:number}} params
+ * @returns {Promise<object>}
+ */
 async function addToCart({ product_id, qty = 1 }) {
   return request("/cart/add", { method: "POST", body: JSON.stringify({ product_id, qty }) });
 }
 
-// POST /cart/remove  { product_id, qty }
+/**
+ * Remove quantity of a product from cart.
+ * @param {{product_id:string, qty?:number}} params
+ * @returns {Promise<object>}
+ */
 async function removeFromCart({ product_id, qty = 1 }) {
   return request("/cart/remove", { method: "POST", body: JSON.stringify({ product_id, qty }) });
 }
@@ -157,12 +225,20 @@ async function clearCart() {
   return request("/cart/clear", { method: "POST" });
 }
 
-// POST /orders/checkout  → { order_id, total_cents, status }
+/**
+ * Create an order from the current cart.
+ * @returns {Promise<{order_id:string,total_cents:number,status:string}>}
+ */
 async function checkout() {
   return request("/orders/checkout", { method: "POST" });
 }
 
-// POST /orders/{order_id}/pay  { card_number, exp_month, exp_year, cvc }
+/**
+ * Pay an order with card details.
+ * @param {string} order_id
+ * @param {{card_number:string,exp_month:number,exp_year:number,cvc:string}} card
+ * @returns {Promise<object>}
+ */
 async function payOrder(order_id, { card_number, exp_month, exp_year, cvc }) {
   return request(`/orders/${order_id}/pay`, {
     method: "POST",
@@ -173,7 +249,10 @@ async function payOrder(order_id, { card_number, exp_month, exp_year, cvc }) {
 // alias pour compat (ton code utilisait payByCard)
 const payByCard = payOrder;
 
-// GET /orders
+/**
+ * List the current user's orders.
+ * @returns {Promise<Array<object>>}
+ */
 async function myOrders() {
   return request("/orders");
 }
@@ -181,22 +260,39 @@ async function myOrders() {
 // alias compat
 const getOrders = myOrders;
 
-// GET /orders/:id
+/**
+ * Retrieve an order by id.
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ */
 async function getOrder(orderId) {
   return request(`/orders/${orderId}`);
 }
 
-// POST /orders/:id/cancel
+/**
+ * Cancel an order by id.
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ */
 async function cancelOrder(orderId) {
   return request(`/orders/${orderId}/cancel`, { method: "POST" });
 }
 
-// GET /orders/:id/invoice
+/**
+ * Retrieve invoice details for a given order id.
+ * @param {string} orderId
+ * @returns {Promise<object|string>}
+ */
 async function getInvoice(orderId) {
   return request(`/orders/${orderId}/invoice`);
 }
 
-// GET /orders/:id/invoice/download - téléchargement PDF
+/**
+ * Trigger a browser download of the invoice PDF for an order.
+ * Note: uses window object to create a temporary link.
+ * @param {string} orderId
+ * @returns {Promise<void>}
+ */
 async function downloadInvoicePDF(orderId) {
   const token = getToken();
   const response = await fetch(API + `/orders/${orderId}/invoice/download`, {
@@ -221,12 +317,20 @@ async function downloadInvoicePDF(orderId) {
   document.body.removeChild(a);
 }
 
-// GET /orders/:id/tracking
+/**
+ * Get shipping tracking details for an order.
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ */
 async function getOrderTracking(orderId) {
   return request(`/orders/${orderId}/tracking`);
 }
 
-// POST /orders/{order_id}/pay (système de paiement)
+/**
+ * Pay an order with extended fields (address, phone, postal code).
+ * @param {{orderId:string,cardNumber:string,expMonth:number,expYear:number,cvc:string,postalCode?:string,phone?:string,streetNumber?:string,streetName?:string}} params
+ * @returns {Promise<object>}
+ */
 async function processPayment({ orderId, cardNumber, expMonth, expYear, cvc, postalCode, phone, streetNumber, streetName }) {
   return request(`/orders/${orderId}/pay`, {
     method: "POST",
@@ -247,22 +351,38 @@ async function processPayment({ orderId, cardNumber, expMonth, expYear, cvc, pos
    ADMIN — Produits
    ========================= */
 
-// GET /admin/products
+/**
+ * Admin: list products.
+ * @returns {Promise<Array<object>>}
+ */
 async function adminListProducts() {
   return request("/admin/products");
 }
 
-// POST /admin/products  { name, description, price_cents, stock_qty, active }
+/**
+ * Admin: create a product.
+ * @param {object} body
+ * @returns {Promise<object>}
+ */
 async function adminCreateProduct(body) {
   return request("/admin/products", { method: "POST", body: JSON.stringify(body) });
 }
 
-// PUT /admin/products/:id
+/**
+ * Admin: update a product by id.
+ * @param {string} id
+ * @param {object} body
+ * @returns {Promise<object>}
+ */
 async function adminUpdateProduct(id, body) {
   return request(`/admin/products/${id}`, { method: "PUT", body: JSON.stringify(body) });
 }
 
-// DELETE /admin/products/:id
+/**
+ * Admin: delete a product by id.
+ * @param {string} id
+ * @returns {Promise<object>}
+ */
 async function adminDeleteProduct(id) {
   return request(`/admin/products/${id}`, { method: "DELETE" });
 }
@@ -271,28 +391,49 @@ async function adminDeleteProduct(id) {
    ADMIN — Commandes
    ========================= */
 
-// GET /admin/orders?user_id=...
+/**
+ * Admin: list orders with optional filters.
+ * @param {Record<string,string>} [params]
+ * @returns {Promise<Array<object>>}
+ */
 async function adminListOrders(params = {}) {
   const qs = new URLSearchParams(params).toString();
   return request(`/admin/orders${qs ? `?${qs}` : ""}`);
 }
 
-// GET /admin/orders/:id
+/**
+ * Admin: get an order by id.
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ */
 async function adminGetOrder(orderId) {
   return request(`/admin/orders/${orderId}`);
 }
 
-// GET /admin/orders/:id/status
+/**
+ * Admin: get order status by id.
+ * @param {string} orderId
+ * @returns {Promise<object>}
+ */
 async function adminGetOrderStatus(orderId) {
   return request(`/admin/orders/${orderId}/status`);
 }
 
-// POST /admin/orders/:id/validate
+/**
+ * Admin: validate an order.
+ * @param {string} order_id
+ * @returns {Promise<object>}
+ */
 async function adminValidateOrder(order_id) {
   return request(`/admin/orders/${order_id}/validate`, { method: "POST" });
 }
 
-// POST /admin/orders/:id/ship
+/**
+ * Admin: mark an order as shipped with delivery metadata.
+ * @param {string} order_id
+ * @param {object} [delivery_data]
+ * @returns {Promise<object>}
+ */
 async function adminShipOrder(order_id, delivery_data = {}) {
   // Données par défaut pour l'expédition
   const defaultDeliveryData = {
@@ -308,12 +449,21 @@ async function adminShipOrder(order_id, delivery_data = {}) {
   });
 }
 
-// POST /admin/orders/:id/mark-delivered
+/**
+ * Admin: mark an order as delivered.
+ * @param {string} order_id
+ * @returns {Promise<object>}
+ */
 async function adminMarkDelivered(order_id) {
   return request(`/admin/orders/${order_id}/mark-delivered`, { method: "POST" });
 }
 
-// POST /admin/orders/:id/refund  { amount_cents? }
+/**
+ * Admin: trigger a refund for an order.
+ * @param {string} order_id
+ * @param {{amount_cents?:number}} [body]
+ * @returns {Promise<object>}
+ */
 async function adminRefundOrder(order_id, body = {}) {
   return request(`/admin/orders/${order_id}/refund`, { method: "POST", body: JSON.stringify(body) });
 }
@@ -322,7 +472,11 @@ async function adminRefundOrder(order_id, body = {}) {
    SUPPORT CLIENT
    ========================= */
 
-// POST /support/threads { subject, order_id? }
+/**
+ * Create a new support thread.
+ * @param {{subject:string,order_id?:string|null}} params
+ * @returns {Promise<object>}
+ */
 async function createSupportThread({ subject, order_id = null }) {
   return request("/support/threads", {
     method: "POST",
@@ -330,17 +484,29 @@ async function createSupportThread({ subject, order_id = null }) {
   });
 }
 
-// GET /support/threads
+/**
+ * List support threads for the current user/admin view.
+ * @returns {Promise<Array<object>>}
+ */
 async function listSupportThreads() {
   return request("/support/threads");
 }
 
-// GET /support/threads/:id
+/**
+ * Get a support thread by id.
+ * @param {string} threadId
+ * @returns {Promise<object>}
+ */
 async function getSupportThread(threadId) {
   return request(`/support/threads/${threadId}`);
 }
 
-// POST /support/threads/:id/messages { content }
+/**
+ * Post a message to a support thread.
+ * @param {string} threadId
+ * @param {{content:string}} params
+ * @returns {Promise<object>}
+ */
 async function postSupportMessage(threadId, { content }) {
   return request(`/support/threads/${threadId}/messages`, {
     method: "POST",
@@ -348,7 +514,11 @@ async function postSupportMessage(threadId, { content }) {
   });
 }
 
-// POST /support/threads/:id/mark-read
+/**
+ * Mark a support thread as read.
+ * @param {string} threadId
+ * @returns {Promise<object>}
+ */
 async function markSupportThreadAsRead(threadId) {
   return request(`/support/threads/${threadId}/mark-read`, { method: "POST" });
 }
@@ -357,7 +527,10 @@ async function markSupportThreadAsRead(threadId) {
    ADMIN SUPPORT
    ========================= */
 
-// GET /admin/support/threads
+/**
+ * Admin: list all support threads.
+ * @returns {Promise<Array<object>>}
+ */
 async function adminListSupportThreads() {
   try {
     return await request("/admin/support/threads");
@@ -367,7 +540,11 @@ async function adminListSupportThreads() {
   }
 }
 
-// GET /admin/support/threads/:id
+/**
+ * Admin: get a support thread by id.
+ * @param {string} threadId
+ * @returns {Promise<object>}
+ */
 async function adminGetSupportThread(threadId) {
   try {
     if (!threadId) {
@@ -380,7 +557,11 @@ async function adminGetSupportThread(threadId) {
   }
 }
 
-// POST /admin/support/threads/:id/close
+/**
+ * Admin: close a support thread by id.
+ * @param {string} threadId
+ * @returns {Promise<object>}
+ */
 async function adminCloseSupportThread(threadId) {
   try {
     if (!threadId) {
@@ -393,7 +574,12 @@ async function adminCloseSupportThread(threadId) {
   }
 }
 
-// POST /admin/support/threads/:id/messages { content }
+/**
+ * Admin: post a message in a support thread.
+ * @param {string} threadId
+ * @param {{content:string}} params
+ * @returns {Promise<object>}
+ */
 async function adminPostSupportMessage(threadId, { content }) {
   try {
     if (!threadId) {

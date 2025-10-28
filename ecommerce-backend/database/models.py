@@ -1,5 +1,8 @@
 """
-Modèles SQLAlchemy pour PostgreSQL
+Modèles SQLAlchemy pour PostgreSQL.
+
+Chaque modèle documente son rôle et ses relations pour faciliter la maintenance
+et l'évolution du schéma. Les timestamps sont en UTC via datetime.utcnow.
 """
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
@@ -12,6 +15,12 @@ from datetime import datetime
 Base = declarative_base()
 
 class User(Base):
+    """Utilisateur de l'application.
+
+    - `is_admin`: contrôle des accès admin
+    - Relation 1:N avec `Order`
+    - Relation 1:1 avec `Cart`
+    """
     __tablename__ = "users"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -28,6 +37,11 @@ class User(Base):
     cart = relationship("Cart", back_populates="user", uselist=False)
 
 class Product(Base):
+    """Produit vendable dans le catalogue.
+
+    - `active`: indique la disponibilité
+    - Relations vers items de panier et de commande
+    """
     __tablename__ = "products"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -43,6 +57,7 @@ class Product(Base):
     order_items = relationship("OrderItem", back_populates="product")
 
 class Cart(Base):
+    """Panier d'un utilisateur (1:1 avec `User`)."""
     __tablename__ = "carts"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -55,6 +70,7 @@ class Cart(Base):
     items = relationship("CartItem", back_populates="cart", cascade="all, delete-orphan")
 
 class CartItem(Base):
+    """Article dans un panier (N:1 `Cart`, N:1 `Product`)."""
     __tablename__ = "cart_items"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -68,6 +84,11 @@ class CartItem(Base):
     product = relationship("Product", back_populates="cart_items")
 
 class Order(Base):
+    """Commande utilisateur.
+
+    Les colonnes `*_at` tracent le cycle de vie: création, validation,
+    expédition, livraison, annulation, remboursement.
+    """
     __tablename__ = "orders"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -88,6 +109,7 @@ class Order(Base):
     delivery = relationship("Delivery", back_populates="order", uselist=False)
 
 class OrderItem(Base):
+    """Ligne d'une commande, avec snapshot du nom/prix au moment de l'achat."""
     __tablename__ = "order_items"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -102,6 +124,7 @@ class OrderItem(Base):
     product = relationship("Product", back_populates="order_items")
 
 class Delivery(Base):
+    """Informations de livraison associées à une commande (1:1)."""
     __tablename__ = "deliveries"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -116,6 +139,7 @@ class Delivery(Base):
     order = relationship("Order", back_populates="delivery")
 
 class Invoice(Base):
+    """Facture émise pour une commande et un utilisateur."""
     __tablename__ = "invoices"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -129,6 +153,11 @@ class Invoice(Base):
     user = relationship("User")
 
 class Payment(Base):
+    """Paiement enregistré pour une commande.
+
+    Les champs `card_last4`, `postal_code`, etc. stockent un minimum d'infos
+    non sensibles pour suivi et génération de facture.
+    """
     __tablename__ = "payments"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -149,6 +178,7 @@ class Payment(Base):
     order = relationship("Order")
 
 class MessageThread(Base):
+    """Fil de discussion de support (lié à un utilisateur et optionnellement une commande)."""
     __tablename__ = "message_threads"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -165,6 +195,7 @@ class MessageThread(Base):
     messages = relationship("Message", back_populates="thread", cascade="all, delete-orphan")
 
 class Message(Base):
+    """Message dans un fil de support. `author_user_id` None signifie message admin."""
     __tablename__ = "messages"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

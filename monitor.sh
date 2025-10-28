@@ -1,7 +1,19 @@
 #!/bin/bash
-set -e
+# Script de monitoring pour l'e-commerce en production
+# ====================================================
+#
+# Ce script fournit un aperçu complet de l'état de l'application :
+# - Statut des conteneurs Docker
+# - Utilisation des ressources (CPU, RAM, réseau)
+# - Tests de connectivité (API, Frontend, DB, Redis)
+# - Logs récents des services
+# - Métriques de l'API
+# - Utilisation de l'espace disque et mémoire
+# - Ports ouverts
+#
+# Usage : ./monitor.sh
 
-echo "📊 Monitoring de l'application ecommerce..."
+set -e
 
 # Couleurs pour les logs
 RED='\033[0;31m'

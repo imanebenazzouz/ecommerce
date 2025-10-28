@@ -1,4 +1,23 @@
 #!/bin/bash
+# Script de déploiement en production pour l'e-commerce
+# ======================================================
+#
+# Ce script automatise le déploiement complet en production :
+# 1. Vérifie les prérequis (Docker, Docker Compose)
+# 2. Configure l'environnement (.env.production)
+# 3. Arrête les services existants
+# 4. Construit les images Docker
+# 5. Démarre tous les services
+# 6. Vérifie la santé des services
+# 7. Affiche les informations d'accès
+#
+# Prérequis :
+# - Docker et Docker Compose installés
+# - Fichier .env.production configuré
+# - Ports 80, 443, 3000, 8000, 5432, 6379, 9090, 3001 libres
+#
+# Usage : ./deploy.sh
+
 set -e
 
 echo "🚀 Déploiement de l'application ecommerce en production..."

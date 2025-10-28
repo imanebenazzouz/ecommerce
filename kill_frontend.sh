@@ -1,4 +1,14 @@
 #!/bin/bash
+# Script d'arrêt propre du frontend React
+# =======================================
+#
+# Ce script arrête proprement le serveur de développement React
+# en tuant les processus qui utilisent les ports Vite (5173, 5175).
+#
+# Utile quand le frontend ne répond plus ou pour libérer les ports
+# avant de redémarrer le serveur de développement.
+#
+# Usage : ./kill_frontend.sh
 
 # Script pour arrêter proprement le frontend
 echo "🛑 Arrêt du frontend..."

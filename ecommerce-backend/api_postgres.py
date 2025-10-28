@@ -1,3 +1,9 @@
+"""
+API FastAPI basée sur PostgreSQL (ancienne variante d'exemple).
+
+Contient des endpoints illustratifs avec repositories alternatifs et logique
+simplifiée. À utiliser principalement comme référence ou pour des tests.
+"""
 # api_postgres.py
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware

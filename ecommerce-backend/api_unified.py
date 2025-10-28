@@ -1,3 +1,33 @@
+"""
+Compatibilité pour les tests: expose quelques symboles attendus par tests/unit/test_api_endpoints.py
+"""
+from .api import (
+    app,
+    current_user,
+    require_admin,
+)
+
+# Adapteurs simples vers les repositories utilisés dans api.py
+from .database.repositories_simple import (
+    PostgreSQLProductRepository,
+    PostgreSQLCartRepository,
+    PostgreSQLOrderRepository,
+)
+
+__all__ = [
+    "app",
+    "current_user",
+    "require_admin",
+    "PostgreSQLProductRepository",
+    "PostgreSQLCartRepository",
+    "PostgreSQLOrderRepository",
+]
+
+"""
+API FastAPI unifiée regroupant authentification, catalogue, panier, commandes,
+paiements et endpoints admin. Utilise les repositories PostgreSQL et un
+service d'auth JWT pour centraliser la logique d'accès et de sécurité.
+"""
 # api_unified.py
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
