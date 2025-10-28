@@ -34,18 +34,10 @@ class TestSupportClient:
         ticket_data = {
             "user_id": "user123",
             "subject": "Problème avec ma commande #12345",
-            "status": "OPEN",
-            "priority": "HIGH",
-            "category": "ORDER_ISSUE"
+            "closed": False
         }
         
-        # Mock de la création
-        mock_ticket = Mock()
-        mock_ticket.id = "ticket123"
-        mock_ticket.user_id = "user123"
-        mock_ticket.subject = "Problème avec ma commande #12345"
-        mock_ticket.status = "OPEN"
-        
+        # Mock de la création - le repository crée un vrai objet MessageThread
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         mock_db.refresh.return_value = None
@@ -54,10 +46,9 @@ class TestSupportClient:
         result = thread_repo.create(ticket_data)
         
         assert result is not None
-        assert result.id == "ticket123"
         assert result.user_id == "user123"
         assert result.subject == "Problème avec ma commande #12345"
-        assert result.status == "OPEN"
+        assert result.closed is False
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
     

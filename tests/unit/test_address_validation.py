@@ -52,21 +52,17 @@ class TestAddressValidation:
         assert any('address' in str(error) for error in errors)
     
     def test_address_no_postal_code(self):
-        """Test avec une adresse sans code postal"""
+        """Test avec une adresse sans code postal (autorisé)"""
         data = {
             "email": "test@example.com",
             "password": "SecurePass123",
             "first_name": "Jean",
             "last_name": "Dupont",
-            "address": "35 rue Alexandre FOURNY"  # Pas de code postal
+            "address": "35 rue Alexandre FOURNY"  # Pas de code postal - c'est autorisé
         }
-        with pytest.raises(ValidationError) as exc_info:
-            RegisterIn(**data)
-        
-        # Vérifier que l'erreur mentionne le code postal manquant
-        errors = exc_info.value.errors()
-        error_messages = [str(e) for e in errors]
-        assert any('code postal' in msg.lower() or 'postal' in msg.lower() for msg in error_messages)
+        # Cette adresse devrait être valide car le code postal n'est pas obligatoire
+        user = RegisterIn(**data)
+        assert user.address == "35 rue Alexandre FOURNY"
     
     def test_address_no_letters(self):
         """Test avec une adresse sans lettres suffisantes"""

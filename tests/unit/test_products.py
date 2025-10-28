@@ -39,15 +39,7 @@ class TestProducts:
             "active": True
         }
         
-        # Mock de la création
-        mock_product = Mock()
-        mock_product.id = "product123"
-        mock_product.name = "T-Shirt Premium"
-        mock_product.description = "T-shirt en coton bio de haute qualité"
-        mock_product.price_cents = 2999
-        mock_product.stock_qty = 100
-        mock_product.active = True
-        
+        # Mock de la création - le repository crée un vrai objet Product
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         mock_db.refresh.return_value = None
@@ -56,7 +48,6 @@ class TestProducts:
         result = product_repo.create(product_data)
         
         assert result is not None
-        assert result.id == "product123"
         assert result.name == "T-Shirt Premium"
         assert result.description == "T-shirt en coton bio de haute qualité"
         assert result.price_cents == 2999
@@ -110,9 +101,10 @@ class TestProducts:
         
         assert result is not None
         assert len(result) == 3
-        assert result[0].name == "Product 1"
-        assert result[1].name == "Product 2"
-        assert result[2].name == "Product 3"
+        # Vérifier que les objets sont bien les mocks attendus
+        assert result[0] == mock_products[0]
+        assert result[1] == mock_products[1]
+        assert result[2] == mock_products[2]
         mock_db.query.assert_called_once()
     
     def test_active_products_listing(self, product_repo, mock_db):
@@ -159,7 +151,11 @@ class TestProducts:
         }
         
         # Test de mise à jour
-        result = product_repo.update("product123", update_data)
+        # La méthode update prend un objet Product, pas un ID et des données
+        mock_product.name = "Updated Name"
+        mock_product.price_cents = 2999
+        mock_product.stock_qty = 100
+        result = product_repo.update(mock_product)
         
         assert result is not None
         assert result.name == "Updated Name"
@@ -202,14 +198,15 @@ class TestProducts:
         
         assert result is True
         assert mock_product.stock_qty == 90  # 100 - 10
-        mock_db.commit.assert_called_once()
         
         # Test de libération de stock
         result = product_repo.release_stock("product123", 5)
         
         assert result is True
         assert mock_product.stock_qty == 95  # 90 + 5
-        mock_db.commit.assert_called_once()
+        
+        # Vérifier que commit a été appelé deux fois (une fois pour chaque opération)
+        assert mock_db.commit.call_count == 2
     
     def test_stock_insufficient(self, product_repo, mock_db):
         """Test de stock insuffisant"""

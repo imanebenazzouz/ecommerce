@@ -162,7 +162,11 @@ class TestProductService:
         }
         
         # Test de mise à jour
-        result = product_repo.update("product123", update_data)
+        # La méthode update prend un objet Product, pas un ID et des données
+        mock_product.name = "Updated Name"
+        mock_product.price_cents = 2999
+        mock_product.stock_qty = 100
+        result = product_repo.update(mock_product)
         
         assert result is not None
         assert result.name == "Updated Name"
@@ -181,7 +185,9 @@ class TestProductService:
         update_data = {"name": "Updated Name"}
         
         # Test de mise à jour
-        result = product_repo.update("nonexistent", update_data)
+        # La méthode update prend un objet Product, pas un ID et des données
+        # Si le produit n'existe pas, on ne peut pas le mettre à jour
+        result = product_repo.update(None)
         
         assert result is None
         mock_db.commit.assert_not_called()

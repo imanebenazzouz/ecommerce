@@ -45,7 +45,8 @@ def test_user(db_session):
         "email": f"test_payment_{os.urandom(8).hex()}@example.com",
         "password": "Test1234!",
         "first_name": "Test",
-        "last_name": "User"
+        "last_name": "User",
+        "address": "123 Test Street, 75001 Paris"  # Adresse requise
     }
     user = user_repo.create(user_data)
     return user

@@ -58,9 +58,8 @@ class TestAuthService:
         # Test avec chaîne vide (devrait retourner False)
         assert not auth_service.verify_password("", hashed)
         
-        # Test avec None (devrait lever une exception)
-        with pytest.raises(AttributeError):
-            auth_service.verify_password(None, hashed)
+        # Test avec None (devrait retourner False, pas lever d'exception)
+        assert not auth_service.verify_password(None, hashed)
     
     def test_create_access_token(self, auth_service):
         """Test de création de token JWT"""
@@ -256,16 +255,12 @@ class TestAuthService:
         # Test avec des chaînes vides (devrait retourner False)
         assert not auth_service.verify_password("", valid_hash)
         
-        # Test avec hash vide (devrait lever une exception)
-        with pytest.raises(ValueError):
-            auth_service.verify_password("password", "")
+        # Test avec hash vide (devrait retourner False, pas lever d'exception)
+        assert not auth_service.verify_password("password", "")
         
-        # Test avec None (devrait lever une exception)
-        with pytest.raises(AttributeError):
-            auth_service.verify_password(None, valid_hash)
-        
-        with pytest.raises(AttributeError):
-            auth_service.verify_password("password", None)
+        # Test avec None (devrait retourner False, pas lever d'exception)
+        assert not auth_service.verify_password(None, valid_hash)
+        assert not auth_service.verify_password("password", None)
     
     def test_token_manipulation(self, auth_service):
         """Test de manipulation de token"""

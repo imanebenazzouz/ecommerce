@@ -38,14 +38,7 @@ class TestPaymentService:
             "payment_method": "card"
         }
         
-        # Mock de la création
-        mock_payment = Mock()
-        mock_payment.id = "payment123"
-        mock_payment.order_id = "order123"
-        mock_payment.amount_cents = 5999
-        mock_payment.status = "SUCCEEDED"
-        mock_payment.payment_method = "card"
-        
+        # Mock de la création - le repository crée un vrai objet Payment
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         mock_db.refresh.return_value = None
@@ -54,7 +47,6 @@ class TestPaymentService:
         result = payment_repo.create(payment_data)
         
         assert result is not None
-        assert result.id == "payment123"
         assert result.order_id == "order123"
         assert result.amount_cents == 5999
         assert result.status == "SUCCEEDED"

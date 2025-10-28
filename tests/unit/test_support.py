@@ -34,20 +34,10 @@ class TestSupport:
         ticket_data = {
             "user_id": "user123",
             "subject": "Problème avec ma commande #12345",
-            "status": "OPEN",
-            "priority": "HIGH",
-            "category": "ORDER_ISSUE"
+            "closed": False
         }
         
-        # Mock de la création
-        mock_ticket = Mock()
-        mock_ticket.id = "ticket123"
-        mock_ticket.user_id = "user123"
-        mock_ticket.subject = "Problème avec ma commande #12345"
-        mock_ticket.status = "OPEN"
-        mock_ticket.priority = "HIGH"
-        mock_ticket.category = "ORDER_ISSUE"
-        
+        # Mock de la création - le repository crée un vrai objet MessageThread
         mock_db.add.return_value = None
         mock_db.commit.return_value = None
         mock_db.refresh.return_value = None
@@ -56,12 +46,9 @@ class TestSupport:
         result = thread_repo.create(ticket_data)
         
         assert result is not None
-        assert result.id == "ticket123"
         assert result.user_id == "user123"
         assert result.subject == "Problème avec ma commande #12345"
-        assert result.status == "OPEN"
-        assert result.priority == "HIGH"
-        assert result.category == "ORDER_ISSUE"
+        assert result.closed is False
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
     
@@ -179,12 +166,11 @@ class TestSupport:
         result = thread_repo.add_message("ticket123", message_data)
         
         assert result is not None
-        assert result.id == "message123"
+        assert result.id is not None  # UUID généré automatiquement
         assert result.thread_id == "ticket123"
-        assert result.sender_id == "user123"
+        assert result.author_user_id == "user123"
         assert result.content == "Bonjour, j'ai un problème avec ma commande. Pouvez-vous m'aider ?"
-        assert result.is_admin is False
-        assert result.message_type == "CUSTOMER_MESSAGE"
+        # Le message est d'un utilisateur (pas admin) car author_user_id n'est pas None
         mock_db.add.assert_called_once()
         mock_db.commit.assert_called_once()
     

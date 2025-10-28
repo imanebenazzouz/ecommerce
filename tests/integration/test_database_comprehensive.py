@@ -73,7 +73,7 @@ class TestDatabaseIntegration:
             "password_hash": "hashed_password",
             "first_name": "Test",
             "last_name": "User",
-            "address": "123 Test Street",
+            "address": "123 Test Street",  # Toujours fournir une adresse
             "is_admin": False
         }
         
@@ -222,7 +222,7 @@ class TestDatabaseIntegration:
         
         # Créer une commande
         order_data = {
-            "user_id": str(user.id),
+            "user_id": str(user.id),  # Convertir en string
             "status": OrderStatus.CREE,
             "items": [
                 {
@@ -242,7 +242,7 @@ class TestDatabaseIntegration:
         
         order = order_repo.create(order_data)
         assert order.id is not None
-        assert order.user_id == user.id
+        assert str(order.user_id) == str(user.id)
         assert order.status == OrderStatus.CREE
         assert len(order.items) == 2
         
@@ -283,7 +283,7 @@ class TestDatabaseIntegration:
         user = user_repo.create(user_data)
         
         order_data = {
-            "user_id": str(user.id),
+            "user_id": str(user.id),  # Convertir en string
             "status": OrderStatus.CREE,
             "items": []
         }
@@ -426,7 +426,7 @@ class TestDatabaseIntegration:
         user = user_repo.create(user_data)
         
         order_data = {
-            "user_id": str(user.id),
+            "user_id": user.id,
             "status": OrderStatus.CREE,
             "items": []
         }
