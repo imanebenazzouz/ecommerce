@@ -12,7 +12,7 @@ export default function Confidentialite() {
         <section className="legal-section">
           <h2>1. Introduction</h2>
           <p>
-            Mon e-commerce s'engage à protéger la vie privée et les données personnelles 
+            TechStore s'engage à protéger la vie privée et les données personnelles 
             de ses utilisateurs. Cette politique de confidentialité explique comment nous 
             collectons, utilisons, stockons et protégeons vos données conformément au 
             Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique 

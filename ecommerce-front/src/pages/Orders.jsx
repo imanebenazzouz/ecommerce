@@ -199,7 +199,7 @@ export default function Orders() {
                     Commande #{order.id.slice(-8)}
                   </h3>
                   <p style={{ margin: "4px 0 0 0", color: "#6b7280", fontSize: 14 }}>
-                    {formatDate(Date.now() / 1000)} {/* Simulation - en réalité utiliser order.created_at */}
+                    {order.created_at ? formatDate(order.created_at) : ""}
                   </p>
                 </div>
                 <div style={{ textAlign: "right" }}>

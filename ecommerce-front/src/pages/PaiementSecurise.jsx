@@ -14,7 +14,7 @@ export default function PaiementSecurise() {
         <section className="legal-section">
           <h2>🔒 Sécurité de vos paiements</h2>
           <p>
-            Chez Mon e-commerce, la sécurité de vos transactions est notre priorité absolue. 
+            Chez TechStore, la sécurité de vos transactions est notre priorité absolue. 
             Nous mettons en œuvre les technologies les plus avancées pour protéger vos 
             données bancaires et garantir des paiements 100% sécurisés.
           </p>
@@ -176,7 +176,7 @@ export default function PaiementSecurise() {
           <ol>
             <li>Contactez immédiatement votre banque</li>
             <li>Faites opposition sur votre carte bancaire</li>
-            <li>Prévenez-nous à : securite@mon-ecommerce.fr</li>
+            <li>Prévenez-nous à : securite@techstore-pro.fr</li>
             <li>Modifiez votre mot de passe de compte</li>
           </ol>
         </section>

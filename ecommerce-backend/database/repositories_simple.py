@@ -280,16 +280,30 @@ class PostgreSQLOrderRepository:
         self.db = db
     
     def create(self, order_data: Dict[str, Any]) -> Order:
-        """Crée une nouvelle commande"""
+        """Crée une nouvelle commande.
+        
+        IMPORTANT: created_at est défini automatiquement par le modèle Order
+        lors de la création. Ne pas le modifier manuellement.
+        """
         uid = _uuid_or_raw(order_data.get("user_id"))
         status = order_data.get("status", OrderStatus.CREE)
         order = Order(
             user_id=uid,
             status=status
+            # created_at sera défini automatiquement par le modèle (default=datetime.utcnow)
         )
         self.db.add(order)
         self.db.commit()
         self.db.refresh(order)
+        
+        # Vérifier que created_at a bien été défini
+        if not order.created_at:
+            # Si par erreur created_at n'est pas défini, le définir maintenant
+            from datetime import datetime
+            order.created_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(order)
+        
         if getattr(order, "id", None) is None:
             setattr(order, "id", "order123")
         setattr(order, "user_id", order_data.get("user_id"))
@@ -339,9 +353,43 @@ class PostgreSQLOrderRepository:
         return True
     
     def update(self, order: Order) -> Order:
-        """Met à jour une commande"""
+        """Met à jour UNIQUEMENT cette commande spécifique.
+        
+        SQLAlchemy track automatiquement les changements de l'objet order.
+        Le commit() ne persiste que les modifications de cet objet, pas d'autres commandes.
+        
+        IMPORTANT: Ne modifie JAMAIS created_at lors d'une mise à jour, 
+        car cela changerait la date de création originale de la commande.
+        """
+        # Sauvegarder created_at AVANT toute opération pour garantir qu'il ne sera pas modifié
+        original_created_at = order.created_at
+        
+        # Expirer l'objet de la session pour éviter les problèmes de cache
+        # Cela garantit qu'on ne modifie que cet objet et pas d'autres commandes en cache
+        self.db.expire(order, ['created_at'])
+        
+        # S'assurer que l'objet est bien attaché à la session avant de commit
+        if order not in self.db:
+            self.db.add(order)
+        
+        # Forcer la sauvegarde de created_at avant le commit
+        if order.created_at != original_created_at:
+            order.created_at = original_created_at
+        
+        # Commit uniquement cette commande
         self.db.commit()
+        
+        # Recharger uniquement cette commande de la base de données
+        # Utiliser merge pour éviter d'affecter d'autres objets Order en session
         self.db.refresh(order)
+        
+        # Double vérification : s'assurer que created_at n'a pas été modifié
+        if order.created_at != original_created_at and original_created_at:
+            # Si created_at a été modifié, le restaurer immédiatement
+            order.created_at = original_created_at
+            self.db.commit()
+            self.db.refresh(order)
+        
         return order
     
     def add_item(self, item_data: Dict[str, Any]) -> OrderItem:

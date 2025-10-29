@@ -38,9 +38,20 @@ export default function Catalog() {
         const localCartData = localStorage.getItem('localCart');
         const localCart = localCartData ? JSON.parse(localCartData) : { items: {} };
         
+        // Vérifier le stock disponible avant d'ajouter
+        const available = p.stock_qty || p.stock || 0;
+        const existingQty = localCart.items[p.id]?.quantity || 0;
+        if (available <= 0) {
+          setErr("Produit indisponible");
+          return;
+        }
+        if (existingQty + 1 > available) {
+          setErr(`Stock insuffisant. Vous avez déjà ${existingQty} dans le panier (stock: ${available}).`);
+          return;
+        }
         const existingItem = localCart.items[p.id];
         if (existingItem) {
-          localCart.items[p.id].quantity += 1;
+          localCart.items[p.id].quantity = existingQty + 1;
         } else {
           localCart.items[p.id] = { product_id: p.id, quantity: 1 };
         }
@@ -96,16 +107,11 @@ export default function Catalog() {
                   })()}
                 </span>
                 <span className="pcard__stock">
-                  Stock&nbsp;:{" "}
-                  {(() => {
-                    // Adapter aux différents formats d'API
-                    const stock = p.stock_qty || p.stock || 0;
-                    return stock <= 0
-                      ? "Rupture"
-                      : stock < 5
-                      ? "Faible"
-                      : stock;
-                  })()}
+                  {p.active ? (
+                    <>Stock\u00a0:{" "}{(() => { const s = p.stock_qty || p.stock || 0; return s < 5 ? "Faible" : s; })()}</>
+                  ) : (
+                    <>Indisponible</>
+                  )}
                 </span>
               </div>
             </div>
@@ -113,10 +119,10 @@ export default function Catalog() {
             <div className="pcard__foot">
               <button
                 onClick={() => add(p)}
-                disabled={!p.active || (p.stock_qty || p.stock || 0) <= 0}
+                disabled={!p.active}
                 className="btn btn--primary"
               >
-                {(p.stock_qty || p.stock || 0) > 0 ? "Ajouter au panier" : "Rupture"}
+                {p.active ? "Ajouter au panier" : "Indisponible"}
               </button>
             </div>
           </article>

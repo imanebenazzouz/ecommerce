@@ -61,10 +61,10 @@ export default function Retractation() {
           </p>
           <ul>
             <li>
-              <strong>Email :</strong> retractation@mon-ecommerce.fr
+              <strong>Email :</strong> retractation@techstore-pro.fr
             </li>
             <li>
-              <strong>Courrier postal :</strong> Mon e-commerce - Service Rétractation, 
+              <strong>Courrier postal :</strong> TechStore - Service Rétractation, 
               [Adresse complète]
             </li>
             <li>
@@ -168,7 +168,7 @@ export default function Retractation() {
           <div className="address-box">
             <p><strong>Adresse de retour :</strong></p>
             <p>
-              Mon e-commerce - Service Retours<br />
+              TechStore - Service Retours<br />
               [Adresse complète de retour]<br />
               [Code postal] [Ville]<br />
               France

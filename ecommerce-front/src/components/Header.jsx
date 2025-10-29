@@ -30,7 +30,7 @@ export default function Header() {
   return (
     <header className="app-header">
       <div className="app-container header-content">
-        <NavLink to="/" className="logo">Mon e-commerce 🛍️</NavLink>
+        <NavLink to="/" className="logo">TechStore 🛍️</NavLink>
 
         {/* petit état de chargement au démarrage si besoin */}
         {loading ? (

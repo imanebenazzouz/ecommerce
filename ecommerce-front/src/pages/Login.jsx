@@ -30,20 +30,33 @@ export default function Login() {
         if (items.length > 0) {
           console.log(`🛒 Synchronisation de ${items.length} articles du panier local...`);
           
+          // Garder trace des articles qui n'ont pas pu être synchronisés
+          const failedItems = {};
+          let successCount = 0;
+          
           // Ajouter chaque article du panier local au panier serveur
           for (const item of items) {
             try {
               await api.addToCart({ product_id: item.product_id, qty: item.quantity });
               console.log(`✅ Article ${item.product_id} (qty: ${item.quantity}) synchronisé`);
+              successCount++;
             } catch (itemError) {
               console.warn(`⚠️ Erreur pour l'article ${item.product_id}:`, itemError);
-              // Continuer avec les autres articles même si un échoue
+              // Garder l'article dans le panier local s'il n'a pas pu être synchronisé
+              failedItems[item.product_id] = item;
             }
           }
           
-          // Vider le panier local après synchronisation réussie
-          localStorage.removeItem('localCart');
-          console.log('✅ Panier local synchronisé et vidé');
+          // Si tous les articles ont été synchronisés, vider le panier local
+          if (successCount === items.length) {
+            localStorage.removeItem('localCart');
+            console.log('✅ Panier local synchronisé et vidé');
+          } else {
+            // Sinon, garder seulement les articles qui ont échoué
+            const remainingCart = { items: failedItems };
+            localStorage.setItem('localCart', JSON.stringify(remainingCart));
+            console.log(`⚠️ ${items.length - successCount} article(s) n'ont pas pu être synchronisés (stock insuffisant ou produit indisponible)`);
+          }
         }
       }
     } catch (error) {

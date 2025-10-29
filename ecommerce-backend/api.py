@@ -590,6 +590,7 @@ class OrderOut(BaseModel):
     items: List[OrderItemOut]
     status: str
     total_cents: int
+    created_at: float
     delivery: Optional[DeliveryOut] = None
 
 # ---- Schemas Admin (CRUD produits + remboursement) ----
@@ -887,22 +888,75 @@ def add_to_cart(inp: CartAddIn, u: User = Depends(current_user), db: Session = D
         cart_repo = CartRepo(db) if CartRepo is not None else PostgreSQLCartRepository(db)
         product_repo = ProductRepo(db) if ProductRepo is not None else PostgreSQLProductRepository(db)
         
-        # Vérifier que le produit existe
-        product = product_repo.get_by_id(inp.product_id)
+        # IMPORTANT: Utiliser with_for_update() pour verrouiller la ligne du produit pendant la transaction
+        # Cela évite les conditions de course où deux requêtes simultanées pourraient dépasser le stock
+        from database.models import Product
+        from database.repositories_simple import _uuid_or_raw
+        
+        # Convertir product_id en UUID
+        product_uuid = _uuid_or_raw(inp.product_id)
+        
+        # Vérifier que le produit existe avec verrou pour mise à jour (pour éviter race condition)
+        # Utiliser with_for_update() pour verrouiller la ligne en lecture
+        product = db.query(Product).filter(Product.id == product_uuid).with_for_update().first()
+        
         if not product:
-            raise HTTPException(404, "Produit introuvable")
+            raise HTTPException(404, f"Produit {inp.product_id} introuvable")
         
         if not product.active:
-            raise HTTPException(400, "Produit non disponible")
+            raise HTTPException(400, f"Produit {product.name} non disponible")
         
-        if product.stock_qty < inp.qty:
-            raise HTTPException(400, "Stock insuffisant")
+        # Récupérer le panier actuel pour vérifier la quantité déjà présente
+        cart = cart_repo.get_by_user_id(str(u.id))
+        quantity_in_cart = 0
         
+        # Utiliser une requête directe pour obtenir la quantité dans le panier (plus fiable)
+        from database.models import CartItem
+        if cart:
+            cart_item_query = db.query(CartItem).filter(
+                CartItem.cart_id == cart.id,
+                CartItem.product_id == product_uuid
+            ).first()
+            if cart_item_query:
+                quantity_in_cart = cart_item_query.quantity
+        
+        # Vérifier que la quantité totale (dans panier + à ajouter) ne dépasse pas le stock
+        total_quantity = quantity_in_cart + inp.qty
+        
+        # Vérification stricte : la quantité totale ne doit PAS dépasser le stock disponible
+        if total_quantity > product.stock_qty:
+            raise HTTPException(400, f"Stock insuffisant pour {product.name}. Il reste {product.stock_qty} article(s) disponible(s). Vous avez déjà {quantity_in_cart} article(s) dans votre panier. Vous ne pouvez pas ajouter {inp.qty} article(s) supplémentaire(s).")
+        
+        # Vérifier également que la quantité à ajouter est valide
+        if inp.qty <= 0:
+            raise HTTPException(400, "La quantité doit être supérieure à 0")
+        
+        # Maintenant ajouter au panier (le stock a été vérifié et verrouillé)
         cart_repo.add_item(str(u.id), inp.product_id, inp.qty)
+        
+        # Vérification finale pour s'assurer qu'on n'a pas dépassé le stock
+        # (protection supplémentaire contre les conditions de course)
+        db.refresh(product)  # Recharger le produit depuis la DB
+        cart = cart_repo.get_by_user_id(str(u.id))
+        if cart:
+            final_cart_item = db.query(CartItem).filter(
+                CartItem.cart_id == cart.id,
+                CartItem.product_id == product_uuid
+            ).first()
+            if final_cart_item and final_cart_item.quantity > product.stock_qty:
+                # Rollback et annuler l'ajout
+                db.rollback()
+                raise HTTPException(400, f"Erreur: la quantité dans le panier ({final_cart_item.quantity}) dépasse le stock disponible ({product.stock_qty}). L'ajout a été annulé.")
+        
         return {"ok": True}
     except HTTPException:
         raise
     except Exception as e:
+        # Log l'erreur pour le débogage
+        import traceback
+        print(f"Erreur dans add_to_cart: {type(e).__name__}: {str(e)}")
+        print(traceback.format_exc())
+        db.rollback()
         raise HTTPException(400, f"Erreur lors de l'ajout au panier: {str(e)}")
 
 @app.post("/cart/remove")
@@ -948,36 +1002,40 @@ def checkout(u: User = Depends(current_user), db: Session = Depends(get_db)):
         for item in cart.items:
             product = product_repo.get_by_id(str(item.product_id))
             if not product:
-                raise HTTPException(400, f"Produit {item.product.name} introuvable")
+                raise HTTPException(400, f"Produit {str(item.product_id)} introuvable")
             
             if not product.active:
-                raise HTTPException(400, f"Produit {item.product.name} non disponible")
+                raise HTTPException(400, f"Produit {product.name} non disponible")
             
             if product.stock_qty < item.quantity:
-                raise HTTPException(400, f"Stock insuffisant pour {item.product.name}")
+                raise HTTPException(400, f"Stock insuffisant pour {product.name}. Il reste {product.stock_qty} article(s) disponible(s), vous essayez d'en commander {item.quantity}.")
         
-        # Créer la commande
+        # Créer la commande - created_at sera automatiquement défini par le modèle
+        # Il est important de ne PAS modifier created_at après la création
         order_data = {
             "user_id": str(u.id),
             "status": OrderStatus.CREE
         }
         order = order_repo.create(order_data)
+        # created_at est défini automatiquement par le modèle lors de la création
+        # Ne pas le modifier manuellement
         
         # Ajouter les articles et mettre à jour le stock
         total_cents = 0
         for item in cart.items:
+            # Récupérer le produit une seule fois
+            product = product_repo.get_by_id(str(item.product_id))
             order_item_data = {
                 "order_id": str(order.id),
                 "product_id": str(item.product_id),
-                "name": item.product.name,
-                "unit_price_cents": item.product.price_cents,
+                "name": product.name,
+                "unit_price_cents": product.price_cents,
                 "quantity": item.quantity
             }
             order_repo.add_item(order_item_data)
-            total_cents += item.product.price_cents * item.quantity
+            total_cents += product.price_cents * item.quantity
             
             # Mettre à jour le stock du produit
-            product = product_repo.get_by_id(str(item.product_id))
             product.stock_qty -= item.quantity
             
             # Inactiver le produit si le stock devient 0
@@ -1037,6 +1095,7 @@ def my_orders(u: User = Depends(current_user), db: Session = Depends(get_db)):
             items=items,
             status=str(getattr(order, 'status', 'CREE')),
             total_cents=sum(item.unit_price_cents * item.quantity for item in items),
+            created_at=(getattr(order, 'created_at').timestamp() if getattr(order, 'created_at', None) else 0.0),
             delivery=delivery_info
         ))
     return out
@@ -1068,6 +1127,7 @@ def get_order(order_id: str, u: User = Depends(current_user), db: Session = Depe
         ) for item in order.items],
         status=cast(str, order.status),
         total_cents=sum(item.unit_price_cents * item.quantity for item in order.items),
+        created_at=(order.created_at.timestamp() if getattr(order, 'created_at', None) else 0.0),
         delivery=delivery_info
     )
 
@@ -1183,6 +1243,36 @@ def admin_delete_product(product_id: str, u = Depends(require_admin), db: Sessio
     except Exception as e:
         raise HTTPException(500, f"Erreur lors de la suppression du produit: {str(e)}")
 
+@app.post("/admin/products/reset-defaults")
+def admin_reset_products_to_four(u = Depends(require_admin), db: Session = Depends(get_db)):
+    """Réinitialise la base Produits à exactement 4 articles actifs.
+
+    Supprime les `CartItem` et `OrderItem` liés pour éviter les références orphelines,
+    puis insère 4 produits par défaut. Utiliser uniquement en environnement de test/démo.
+    """
+    try:
+        from database.models import Product as MProduct, CartItem as MCartItem, OrderItem as MOrderItem
+        # Supprimer les références dépendantes puis les produits
+        db.query(MCartItem).delete()
+        db.query(MOrderItem).delete()
+        db.query(MProduct).delete()
+        db.commit()
+
+        defaults = [
+            {"name": "MacBook Pro M3", "description": "14'' 16 Go / 512 Go", "price_cents": 229999, "stock_qty": 10, "active": True},
+            {"name": "iPhone 15", "description": "128 Go, Noir", "price_cents": 99999, "stock_qty": 15, "active": True},
+            {"name": "AirPods Pro 2", "description": "Réduction de bruit active", "price_cents": 27999, "stock_qty": 20, "active": True},
+            {"name": "Apple Watch SE", "description": "GPS 40mm", "price_cents": 29999, "stock_qty": 12, "active": True},
+        ]
+        for data in defaults:
+            p = MProduct(**data)
+            db.add(p)
+        db.commit()
+        return {"ok": True, "message": "Produits réinitialisés à 4 éléments"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Erreur lors de la réinitialisation des produits: {str(e)}")
+
 # ====================== ADMIN: Commandes ======================
 @app.get("/admin/orders", response_model=list[OrderOut])
 def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin), db: Session = Depends(get_db)):
@@ -1214,6 +1304,7 @@ def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin),
             ) for item in order.items],
             status=str(order.status),
             total_cents=sum(item.unit_price_cents * item.quantity for item in order.items),
+            created_at=(order.created_at.timestamp() if getattr(order, 'created_at', None) else 0.0),
             delivery=delivery_info
         ))
     return out
@@ -1244,6 +1335,7 @@ def admin_get_order(order_id: str, u = Depends(require_admin), db: Session = Dep
         ) for item in order.items],
         status=cast(str, order.status),
         total_cents=sum(item.unit_price_cents * item.quantity for item in order.items),
+        created_at=(order.created_at.timestamp() if getattr(order, 'created_at', None) else 0.0),
         delivery=delivery_info
     )
 
@@ -1256,15 +1348,16 @@ def admin_validate_order(order_id: str, u = Depends(require_admin), db: Session 
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être validée
-        if str(order.status) not in [OrderStatus.CREE, OrderStatus.PAYEE]:
+        if str(order.status) not in [OrderStatus.CREE.value, OrderStatus.PAYEE.value]:
             raise HTTPException(400, f"Commande déjà traitée (statut actuel: {order.status})")
         
-        # Mettre à jour le statut et le timestamp
+        # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande
         order.status = OrderStatus.VALIDEE  # type: ignore
         order.validated_at = datetime.utcnow()  # type: ignore
+        # Utiliser update() qui modifie uniquement cette commande spécifique
         order_repo.update(order)
         
-        # Rafraîchir l'objet pour avoir les dernières données
+        # Rafraîchir UNIQUEMENT cette commande pour avoir les dernières données
         db.refresh(order)
         
         delivery_info = None
@@ -1286,6 +1379,7 @@ def admin_validate_order(order_id: str, u = Depends(require_admin), db: Session 
             ) for item in order.items],
             status=str(order.status),
             total_cents=sum(item.unit_price_cents * item.quantity for item in order.items),
+            created_at=(order.created_at.timestamp() if getattr(order, 'created_at', None) else 0.0),
             delivery=delivery_info
         )
     except HTTPException:
@@ -1308,7 +1402,7 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être annulée
-        if str(order.status) not in [OrderStatus.CREE, OrderStatus.PAYEE]:
+        if str(order.status) not in [OrderStatus.CREE.value, OrderStatus.PAYEE.value]:
             raise HTTPException(400, "Cette commande ne peut pas être annulée")
         
         # Vérifier si la commande a été payée
@@ -1347,7 +1441,7 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
                 
                 product_repo.update(product)
         
-        # Mettre à jour le statut de la commande
+        # Mettre à jour le statut et les timestamps UNIQUEMENT pour cette commande spécifique
         # Si la commande était payée et remboursée → REMBOURSEE (violet)
         # Sinon (commande non payée) → ANNULEE (rouge)
         if was_paid:
@@ -1357,6 +1451,7 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
             order.status = OrderStatus.ANNULEE  # type: ignore
         
         order.cancelled_at = datetime.utcnow()  # type: ignore
+        # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
         response = {"ok": True, "message": "Commande annulée avec succès"}
@@ -1387,7 +1482,7 @@ def pay_order(order_id: str, payment_data: PayIn, uid: str = Depends(current_use
         if not order or str(order.user_id) != uid:
             raise HTTPException(404, "Commande introuvable")
         
-        if str(order.status) != OrderStatus.CREE:
+        if str(order.status) != OrderStatus.CREE.value:
             raise HTTPException(400, "Commande déjà payée ou traitée")
         
         # ============ VALIDATIONS STRICTES (avec Luhn) ============
@@ -1959,7 +2054,7 @@ def admin_ship_order(order_id: str, delivery_data: DeliveryIn, u = Depends(requi
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être expédiée
-        if str(order.status) not in [OrderStatus.VALIDEE, OrderStatus.PAYEE]:
+        if str(order.status) not in [OrderStatus.VALIDEE.value, OrderStatus.PAYEE.value]:
             raise HTTPException(400, f"Commande non expédiable (statut actuel: {order.status})")
         
         # Créer les informations de livraison
@@ -1973,12 +2068,13 @@ def admin_ship_order(order_id: str, delivery_data: DeliveryIn, u = Depends(requi
         )
         db.add(delivery)
         
-        # Mettre à jour le statut de la commande
+        # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
+        # Modifier uniquement l'objet order récupéré, pas d'autres commandes
         order.status = OrderStatus.EXPEDIEE  # type: ignore
         order.shipped_at = datetime.utcnow()  # type: ignore
+        # Utiliser update() qui commit UNIQUEMENT les changements de cette commande
         order_repo.update(order)
-        
-        db.commit()
+        # Le commit inclut aussi la livraison ajoutée ci-dessus (même transaction)
         
         return {"ok": True, "message": f"Commande {order_id} expédiée avec succès"}
     except HTTPException:
@@ -1998,18 +2094,21 @@ def admin_mark_delivered(order_id: str, u = Depends(require_admin), db: Session 
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être marquée comme livrée
-        if str(order.status) != OrderStatus.EXPEDIEE:
+        if str(order.status) != OrderStatus.EXPEDIEE.value:
             raise HTTPException(400, f"Commande non expédiée (statut actuel: {order.status})")
         
-        # Mettre à jour le statut de la commande
+        # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
         order.status = OrderStatus.LIVREE  # type: ignore
         order.delivered_at = datetime.utcnow()  # type: ignore
+        # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
-        # Mettre à jour le statut de livraison
+        # Mettre à jour le statut de livraison UNIQUEMENT pour cette commande
         if order.delivery:
             order.delivery.delivery_status = "LIVREE"
+            # Commit pour persister la mise à jour du statut de livraison
             db.commit()
+            db.refresh(order.delivery)
         
         return {"ok": True, "message": f"Commande {order_id} marquée comme livrée"}
     except HTTPException:
@@ -2031,7 +2130,7 @@ def admin_refund_order(order_id: str, refund_data: RefundIn, u = Depends(require
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être remboursée
-        if str(order.status) not in [OrderStatus.PAYEE, OrderStatus.EXPEDIEE, OrderStatus.LIVREE]:
+        if str(order.status) not in [OrderStatus.PAYEE.value, OrderStatus.EXPEDIEE.value, OrderStatus.LIVREE.value]:
             raise HTTPException(400, f"Commande non remboursable (statut actuel: {order.status})")
         
         # Récupérer le paiement
@@ -2053,14 +2152,16 @@ def admin_refund_order(order_id: str, refund_data: RefundIn, u = Depends(require
                 
                 product_repo.update(product)
         
-        # Mettre à jour le statut de la commande
+        # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
         order.status = OrderStatus.REMBOURSEE  # type: ignore
         order.refunded_at = datetime.utcnow()  # type: ignore
+        # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
-        # Mettre à jour le statut du paiement
+        # Mettre à jour le statut des paiements UNIQUEMENT pour cette commande
         for payment in payments:
             payment.status = "REFUNDED"  # type: ignore
+        # order_repo.update() a déjà fait le commit, mais on commit aussi les paiements
         db.commit()
         
         return {"ok": True, "message": f"Commande {order_id} remboursée avec succès"}

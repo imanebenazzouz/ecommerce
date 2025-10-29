@@ -13,7 +13,7 @@ export default function CGV() {
           <h2>1. Objet</h2>
           <p>
             Les présentes Conditions Générales de Vente (CGV) régissent les ventes de produits 
-            effectuées sur le site Mon e-commerce. Toute commande implique l'acceptation pleine 
+            effectuées sur le site TechStore. Toute commande implique l'acceptation pleine 
             et entière des présentes CGV.
           </p>
         </section>

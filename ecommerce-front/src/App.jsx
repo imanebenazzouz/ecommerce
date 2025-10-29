@@ -138,7 +138,7 @@ function AppContent() {
         )}
       </nav>
 
-      <h1>Mon e-commerce 🛍️</h1>
+      <h1>TechStore 🛍️</h1>
 
       <Routes>
         <Route path="/" element={<Catalog />} />

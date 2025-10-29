@@ -145,7 +145,14 @@ export default function PaymentModal({
         setError("Paiement refusé. Vérifiez votre carte bancaire.");
       }
     } catch (err) {
-      console.error("Erreur paiement:", err);
+      // Ne pas logger les détails de l'erreur qui pourraient contenir des données sensibles (numéro de carte, etc.)
+      // Logger uniquement le type d'erreur sans les détails
+      if (err.status) {
+        console.error(`Erreur paiement (status ${err.status}):`, err.message || "Erreur inconnue");
+      } else {
+        console.error("Erreur paiement:", "Erreur inconnue");
+      }
+      
       let errorMessage = "Erreur lors du paiement. Veuillez réessayer.";
       
       if (err.status === 402) {

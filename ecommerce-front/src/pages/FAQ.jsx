@@ -99,7 +99,7 @@ export default function FAQ() {
         },
         {
           q: "Comment supprimer mon compte ?",
-          a: "Pour supprimer votre compte, contactez notre service client à dpo@mon-ecommerce.fr. Conformément au RGPD, nous supprimerons vos données personnelles sous 30 jours."
+          a: "Pour supprimer votre compte, contactez notre service client à dpo@techstore-pro.fr. Conformément au RGPD, nous supprimerons vos données personnelles sous 30 jours."
         }
       ]
     },
@@ -133,7 +133,7 @@ export default function FAQ() {
         },
         {
           q: "Comment exercer mes droits RGPD ?",
-          a: "Vous pouvez exercer vos droits d'accès, de rectification, de suppression et d'opposition en nous contactant à dpo@mon-ecommerce.fr. Pour plus d'informations, consultez notre Politique de Confidentialité."
+          a: "Vous pouvez exercer vos droits d'accès, de rectification, de suppression et d'opposition en nous contactant à dpo@techstore-pro.fr. Pour plus d'informations, consultez notre Politique de Confidentialité."
         }
       ]
     },
@@ -142,7 +142,7 @@ export default function FAQ() {
       questions: [
         {
           q: "Comment contacter le service client ?",
-          a: "Vous pouvez nous contacter par email à contact@mon-ecommerce.fr, par téléphone au +33 (0)1 XX XX XX XX (du lundi au vendredi, 9h-18h), ou via notre formulaire de contact."
+          a: "Vous pouvez nous contacter par email à contact@techstore-pro.fr, par téléphone au +33 (0)1 XX XX XX XX (du lundi au vendredi, 9h-18h), ou via notre formulaire de contact."
         },
         {
           q: "Quels sont vos horaires ?",

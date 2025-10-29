@@ -94,7 +94,9 @@ class Order(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     status = Column(String(50), nullable=False, default="CREE")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Utiliser datetime.utcnow sans parenthèses pour que la fonction soit appelée à chaque insertion
+    # Cela garantit que chaque commande a sa propre date/heure de création
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     validated_at = Column(DateTime)
     shipped_at = Column(DateTime)
     delivered_at = Column(DateTime)

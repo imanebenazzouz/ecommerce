@@ -181,7 +181,7 @@ export default function Garanties() {
             Dès que vous constatez un problème, contactez notre service client :
           </p>
           <ul>
-            <li><strong>Email :</strong> sav@mon-ecommerce.fr</li>
+            <li><strong>Email :</strong> sav@techstore-pro.fr</li>
             <li><strong>Téléphone :</strong> +33 (0)1 XX XX XX XX</li>
             <li><strong>Formulaire :</strong> <a href="/support">Page de contact</a></li>
           </ul>

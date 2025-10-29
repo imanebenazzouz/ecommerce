@@ -97,6 +97,13 @@ export default function Cart() {
     return m;
   }, [products]);
 
+  // Stock par produit (pour vérifier le panier local hors connexion)
+  const stockById = useMemo(() => {
+    const m = new Map();
+    products.forEach((p) => m.set(p.id, p.stock_qty || p.stock || 0));
+    return m;
+  }, [products]);
+
   const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
   const items = useMemo(() => Object.values(cart?.items || {}), [cart]);
@@ -151,14 +158,22 @@ export default function Cart() {
       } else {
         // Gestion du panier local
         const localCart = getLocalCart();
-        const existingItem = localCart.items[product_id];
-        if (existingItem) {
-          localCart.items[product_id].quantity += 1;
+        const available = stockById.get(product_id) || 0;
+        const existingQty = localCart.items[product_id]?.quantity || 0;
+        if (available <= 0) {
+          setErr("Rupture de stock");
+        } else if (existingQty + 1 > available) {
+          setErr(`Stock insuffisant. Vous avez déjà ${existingQty} dans le panier (stock: ${available}).`);
         } else {
-          localCart.items[product_id] = { product_id, quantity: 1 };
+          const existingItem = localCart.items[product_id];
+          if (existingItem) {
+            localCart.items[product_id].quantity = existingQty + 1;
+          } else {
+            localCart.items[product_id] = { product_id, quantity: 1 };
+          }
+          saveLocalCart(localCart);
+          setCart(localCart);
         }
-        saveLocalCart(localCart);
-        setCart(localCart);
       }
     } catch (e) {
       setErr(e.message);
