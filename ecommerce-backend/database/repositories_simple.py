@@ -250,7 +250,7 @@ class PostgreSQLCartRepository:
             return True
         except Exception as e:
             self.db.rollback()
-            print(f"Erreur remove_item: {e}")
+            # Erreur lors de la suppression d'un article du panier
             return False
     
     def clear_cart(self, user_id: str) -> bool:
@@ -267,7 +267,7 @@ class PostgreSQLCartRepository:
             return True
         except Exception as e:
             self.db.rollback()
-            print(f"Erreur clear_cart: {e}")
+            # Erreur lors du vidage du panier
             return False
     
     def clear(self, user_id: str) -> bool:

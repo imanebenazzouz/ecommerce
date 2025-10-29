@@ -277,10 +277,9 @@ class TestCartRepository:
         # Test avec quantité négative
         result = cart_repo.add_item(sample_user_id, sample_product_id, -1)
         
-        # Vérifier que l'opération a été effectuée (la validation devrait être faite côté API)
-        mock_db.add.assert_called_once()
-        mock_db.commit.assert_called_once()
-        assert result is True
+        # Vérifier que l'opération a été rejetée (validation côté repository)
+        assert result is False
+        mock_db.add.assert_not_called()
     
     def test_remove_item_negative_quantity(self, cart_repo, mock_db, sample_user_id, sample_product_id):
         """Test de suppression avec quantité négative"""

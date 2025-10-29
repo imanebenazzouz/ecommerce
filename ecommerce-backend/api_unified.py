@@ -1,18 +1,34 @@
 """
 Compatibilité pour les tests: expose quelques symboles attendus par tests/unit/test_api_endpoints.py
 """
-from .api import (
-    app,
-    current_user,
-    require_admin,
-)
+try:
+    from .api import (
+        app,
+        current_user,
+        require_admin,
+    )
+except ImportError:
+    # Fallback when running as script
+    from api import (
+        app,
+        current_user,
+        require_admin,
+    )
 
 # Adapteurs simples vers les repositories utilisés dans api.py
-from .database.repositories_simple import (
-    PostgreSQLProductRepository,
-    PostgreSQLCartRepository,
-    PostgreSQLOrderRepository,
-)
+try:
+    from .database.repositories_simple import (
+        PostgreSQLProductRepository,
+        PostgreSQLCartRepository,
+        PostgreSQLOrderRepository,
+    )
+except ImportError:
+    # Fallback when running as script
+    from database.repositories_simple import (
+        PostgreSQLProductRepository,
+        PostgreSQLCartRepository,
+        PostgreSQLOrderRepository,
+    )
 
 __all__ = [
     "app",

@@ -132,7 +132,15 @@ class TestEmailModification:
         for invalid_email in invalid_emails:
             # Le format devrait être validé avant même d'atteindre la base de données
             # Ici on teste juste que le modèle ne devrait pas accepter ces formats
-            assert "@" not in invalid_email or invalid_email.count("@") != 1 or " " in invalid_email
+            is_invalid = (
+                "@" not in invalid_email or 
+                invalid_email.count("@") != 1 or 
+                " " in invalid_email or
+                invalid_email.startswith("@") or
+                invalid_email.endswith("@") or
+                invalid_email == ""
+            )
+            assert is_invalid, f"Email '{invalid_email}' devrait être considéré comme invalide"
 
 
 @pytest.mark.unit

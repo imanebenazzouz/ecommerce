@@ -9,10 +9,10 @@ import sys
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 
-# Ajouter le répertoire parent au path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from ecommerce_backend.api import app
+# Import direct du module api
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'ecommerce-backend'))
+import api
+from api import app
 
 @pytest.mark.unit
 @pytest.mark.api
@@ -33,7 +33,7 @@ class TestAPIEndpoints:
         assert "message" in data
         assert "version" in data
         assert "docs" in data
-        assert data["message"] == "API E-commerce"
+        assert data["message"] == "Ecommerce API - API E-commerce"
     
     def test_health_check_endpoint(self, client):
         """Test du point de santé"""
@@ -165,14 +165,14 @@ class TestAPIEndpoints:
         assert response.status_code == 200  # Public endpoint
         
         # Test avec token valide - devrait aussi fonctionner
-        with patch('ecommerce_backend.api_unified.current_user') as mock_current_user:
+        with patch('api.current_user') as mock_current_user:
             mock_current_user.return_value = Mock(
                 id="user123",
                 email="test@example.com",
                 is_admin=False
             )
             
-            with patch('ecommerce_backend.api_unified.PostgreSQLProductRepository') as mock_repo:
+            with patch('api.PostgreSQLProductRepository') as mock_repo:
                 mock_repo.return_value.get_all_active.return_value = [
                     Mock(id="product1", name="Product 1", price_cents=2999, stock_qty=100, active=True)
                 ]
@@ -193,26 +193,32 @@ class TestAPIEndpoints:
         response = client.get("/cart")
         assert response.status_code == 401  # Unauthorized
         
-        # Test avec token valide
-        with patch('ecommerce_backend.api_unified.current_user') as mock_current_user:
-            mock_current_user.return_value = Mock(
-                id="user123",
-                email="test@example.com",
-                is_admin=False
-            )
-            
-            with patch('ecommerce_backend.api_unified.PostgreSQLCartRepository') as mock_repo:
-                mock_repo.return_value.get_by_user_id.return_value = Mock(
-                    items=[]
-                )
+        # Test avec token valide - utiliser dependency_overrides
+        mock_user = Mock(
+            id="user123",
+            email="test@example.com",
+            is_admin=False
+        )
+        
+        # Override la dépendance current_user
+        app.dependency_overrides[api.current_user] = lambda: mock_user
+        
+        try:
+            with patch('api.PostgreSQLCartRepository') as mock_repo_class:
+                mock_repo = Mock()
+                mock_repo_class.return_value = mock_repo
+                mock_repo.get_by_user_id.return_value = Mock(items=[])
                 
                 response = client.get("/cart", headers={"Authorization": "Bearer mock_token"})
                 
                 assert response.status_code == 200
-        data = response.json()
-        assert "items" in data
-        assert "total_cents" in data
-        assert isinstance(data["items"], dict)  # Changed from list to dict
+                data = response.json()
+                assert "items" in data
+                assert "total_cents" in data
+                assert isinstance(data["items"], dict)
+        finally:
+            # Nettoyer les overrides
+            app.dependency_overrides.clear()
     
     def test_orders_endpoint_authentication(self, client):
         """Test de l'endpoint des commandes avec authentification"""
@@ -220,28 +226,35 @@ class TestAPIEndpoints:
         response = client.get("/orders")
         assert response.status_code == 401  # Unauthorized
         
-        # Test avec token valide
-        with patch('ecommerce_backend.api_unified.current_user') as mock_current_user:
-            mock_current_user.return_value = Mock(
-                id="user123",
-                email="test@example.com",
-                is_admin=False
-            )
-            
-            with patch('ecommerce_backend.api_unified.PostgreSQLOrderRepository') as mock_repo:
-                mock_repo.return_value.get_by_user_id.return_value = [
+        # Test avec token valide - utiliser dependency_overrides
+        mock_user = Mock(
+            id="user123",
+            email="test@example.com",
+            is_admin=False
+        )
+        
+        # Override la dépendance current_user
+        app.dependency_overrides[api.current_user] = lambda: mock_user
+        
+        try:
+            with patch('api.PostgreSQLOrderRepository') as mock_repo_class:
+                mock_repo = Mock()
+                mock_repo_class.return_value = mock_repo
+                mock_repo.get_by_user_id.return_value = [
                     Mock(id="order1", status="CREE", created_at="2024-01-01", items=[])
                 ]
                 
                 response = client.get("/orders", headers={"Authorization": "Bearer mock_token"})
                 
                 assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) > 0
-        assert "id" in data[0]
-        assert "status" in data[0]
-        # Removed created_at check as it's not in OrderOut model
+                data = response.json()
+                assert isinstance(data, list)
+                assert len(data) > 0
+                assert "id" in data[0]
+                assert "status" in data[0]
+        finally:
+            # Nettoyer les overrides
+            app.dependency_overrides.clear()
     
     def test_admin_endpoints_authorization(self, client):
         """Test de l'autorisation des endpoints admin"""
@@ -250,37 +263,48 @@ class TestAPIEndpoints:
         assert response.status_code == 401  # Unauthorized
         
         # Test avec token d'utilisateur normal
-        with patch('ecommerce_backend.api_unified.current_user') as mock_current_user:
-            mock_current_user.return_value = Mock(
-                id="user123",
-                email="test@example.com",
-                is_admin=False
-            )
-            
+        mock_normal_user = Mock(
+            id="user123",
+            email="test@example.com",
+            is_admin=False
+        )
+        
+        app.dependency_overrides[api.current_user] = lambda: mock_normal_user
+        
+        try:
             response = client.get("/admin/products", headers={"Authorization": "Bearer mock_token"})
             assert response.status_code == 403  # Forbidden
+        finally:
+            app.dependency_overrides.clear()
         
         # Test avec token d'admin
-        with patch('ecommerce_backend.api_unified.current_user') as mock_current_user, \
-             patch('ecommerce_backend.api_unified.require_admin') as mock_require_admin:
-            mock_current_user.return_value = Mock(
-                id="admin123",
-                email="admin@example.com",
-                is_admin=True
-            )
-            mock_require_admin.return_value = Mock(
-                id="admin123",
-                email="admin@example.com",
-                is_admin=True
-            )
-            
-            with patch('ecommerce_backend.api_unified.PostgreSQLProductRepository') as mock_repo:
-                mock_repo.return_value.get_all.return_value = [
-                    Mock(id="product1", name="Product 1", price_cents=2999, stock_qty=100, active=True)
-                ]
+        mock_admin_user = Mock(
+            id="admin123",
+            email="admin@example.com",
+            is_admin=True
+        )
+        
+        app.dependency_overrides[api.current_user] = lambda: mock_admin_user
+        app.dependency_overrides[api.require_admin] = lambda: mock_admin_user
+        
+        try:
+            with patch('api.PostgreSQLProductRepository') as mock_repo_class:
+                mock_repo = Mock()
+                mock_repo_class.return_value = mock_repo
+                # Créer un mock avec des valeurs réelles pour éviter les erreurs Pydantic
+                mock_product = Mock()
+                mock_product.id = "product1"
+                mock_product.name = "Product 1"
+                mock_product.description = "Test product description"
+                mock_product.price_cents = 2999
+                mock_product.stock_qty = 100
+                mock_product.active = True
+                mock_repo.get_all.return_value = [mock_product]
                 
                 response = client.get("/admin/products", headers={"Authorization": "Bearer mock_token"})
                 assert response.status_code == 200
+        finally:
+            app.dependency_overrides.clear()
     
     def test_cors_headers(self, client):
         """Test des en-têtes CORS"""

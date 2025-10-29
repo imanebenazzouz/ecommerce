@@ -30,18 +30,14 @@ export default function Cart() {
         setPending(true);
         
         // Charger les produits d'abord
-        console.log('🛒 Chargement des produits...');
         const ps = await api.listProducts();
         setProducts(ps);
-        console.log('✅ Produits chargés');
 
         if (isAuthenticated()) {
           // Utilisateur connecté : récupérer le panier du serveur
-          console.log('🛒 Chargement du panier serveur...');
           try {
             const c = await api.getCart();
             setCart(c);
-            console.log('✅ Panier serveur chargé');
           } catch (cartError) {
             console.warn('Erreur chargement panier serveur:', cartError);
             if (cartError.status === 401) {
@@ -58,10 +54,8 @@ export default function Cart() {
           }
         } else {
           // Utilisateur non connecté : récupérer le panier local
-          console.log('🛒 Chargement du panier local...');
           const localCart = getLocalCart();
           setCart(localCart);
-          console.log('✅ Panier local chargé');
         }
       } catch (e) {
         console.error('Erreur chargement général:', e);
@@ -123,7 +117,7 @@ export default function Cart() {
           setCart(c);
           setErr(""); // Effacer les erreurs en cas de succès
         } catch (cartError) {
-          console.warn('Erreur reload panier serveur:', cartError);
+          // Erreur lors du rechargement du panier serveur - utiliser panier local
           if (cartError.status === 401) {
             // Session expirée, basculer sur le panier local
             const localCart = getLocalCart();

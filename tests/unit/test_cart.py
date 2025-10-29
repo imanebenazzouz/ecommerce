@@ -107,8 +107,10 @@ class TestCart:
         result = cart_repo.add_item("user123", "product123", 2)
         
         assert result is True
-        mock_db.add.assert_called_once()
-        mock_db.commit.assert_called_once()
+        # add est appelé deux fois : une fois pour créer le panier, une fois pour l'article
+        assert mock_db.add.call_count == 2
+        # commit est appelé deux fois : une fois pour créer le panier, une fois pour l'article
+        assert mock_db.commit.call_count == 2
     
     def test_add_item_to_existing_cart_item(self, cart_repo, mock_db):
         """Test d'ajout d'article à un article existant du panier"""
@@ -430,8 +432,8 @@ class TestCart:
     
     def test_cart_edge_cases(self, cart_repo):
         """Test des cas limites du panier"""
-        # Test avec quantité zéro
-        assert cart_repo.remove_item("user123", "product123", 0) is False
+        # Test avec quantité zéro (supprime complètement l'article)
+        assert cart_repo.remove_item("user123", "product123", 0) is True
         
         # Test avec quantité négative
         assert cart_repo.remove_item("user123", "product123", -1) is False

@@ -1,50 +1,64 @@
 #!/usr/bin/env python3
 """
-Script pour exécuter tous les tests end-to-end
+Script pour exécuter les tests end-to-end
 """
-
-import unittest
+import subprocess
 import sys
 import os
 import time
 
-def run_e2e_tests():
-    """Exécute tous les tests end-to-end"""
+def main():
     print("🌐 EXÉCUTION DES TESTS END-TO-END")
-    print("=" * 50)
+    print("=" * 60)
     
-    # Ajouter le répertoire courant au path
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Vérifier que l'API est disponible
+    try:
+        import requests
+        response = requests.get("http://localhost:8000/health", timeout=5)
+        if response.status_code != 200:
+            print("❌ L'API n'est pas disponible sur http://localhost:8000")
+            print("💡 Démarrez l'API avec: cd ecommerce-backend && python3 api.py")
+            return 1
+        print("✅ L'API est disponible")
+    except ImportError:
+        print("❌ Le module 'requests' n'est pas installé")
+        print("💡 Installez-le avec: pip install requests")
+        return 1
+    except Exception as e:
+        print(f"❌ L'API n'est pas disponible: {e}")
+        print("💡 Démarrez l'API avec: cd ecommerce-backend && python3 api.py")
+        return 1
     
-    # Découvrir et exécuter tous les tests e2e
-    loader = unittest.TestLoader()
-    start_dir = os.path.join(os.path.dirname(__file__), 'e2e')
-    suite = loader.discover(start_dir, pattern='test_*.py')
+    # Vérifier que le frontend est disponible
+    try:
+        response = requests.get("http://localhost:5173", timeout=5)
+        if response.status_code != 200:
+            print("❌ Le frontend n'est pas disponible sur http://localhost:5173")
+            print("💡 Démarrez le frontend avec: cd ecommerce-front && npm run dev")
+            return 1
+        print("✅ Le frontend est disponible")
+    except Exception as e:
+        print(f"❌ Le frontend n'est pas disponible: {e}")
+        print("💡 Démarrez le frontend avec: cd ecommerce-front && npm run dev")
+        return 1
     
-    runner = unittest.TextTestRunner(verbosity=2, stream=sys.stdout)
-    result = runner.run(suite)
+    # Exécuter les tests E2E
+    test_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'e2e')
+    os.chdir(test_dir)
     
-    # Affichage du résumé
-    print("\n" + "=" * 50)
-    print("📊 RÉSUMÉ DES TESTS END-TO-END")
-    print("=" * 50)
-    print(f"🧪 Tests exécutés: {result.testsRun}")
-    print(f"✅ Tests réussis: {result.testsRun - len(result.failures) - len(result.errors)}")
-    print(f"❌ Échecs: {len(result.failures)}")
-    print(f"💥 Erreurs: {len(result.errors)}")
-    
-    if result.failures:
-        print("\n🔍 DÉTAIL DES ÉCHECS:")
-        for test, traceback in result.failures:
-            print(f"  ❌ {test}: {traceback.split('AssertionError:')[-1].strip()}")
-    
-    if result.errors:
-        print("\n🔍 DÉTAIL DES ERREURS:")
-        for test, traceback in result.errors:
-            print(f"  💥 {test}: {traceback.split('Exception:')[-1].strip()}")
-    
-    return len(result.failures) + len(result.errors) == 0
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "pytest", 
+            "test_final.py",
+            "test_checkout_validation.py",
+            "test_user_journey.py",
+            "test_user_journey_comprehensive.py",
+            "-v", "--tb=short"
+        ])
+        return result.returncode
+    except Exception as e:
+        print(f"❌ Erreur lors de l'exécution des tests: {e}")
+        return 1
 
 if __name__ == "__main__":
-    success = run_e2e_tests()
-    sys.exit(0 if success else 1)
+    sys.exit(main())
