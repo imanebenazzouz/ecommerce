@@ -10,7 +10,7 @@ Ce service centralise toute la logique métier liée aux commandes :
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 from database.models import Order, OrderItem, User, Product, Payment, Invoice
 from database.repositories_simple import (
@@ -119,7 +119,7 @@ class OrderService:
         if payment.status == "PAID":
             # Mettre à jour le statut de la commande
             order.status = OrderStatus.PAYEE
-            order.paid_at = datetime.utcnow()
+            order.paid_at = datetime.now(UTC)
             order.payment_id = payment.id
             self.order_repo.update(order)
             
@@ -144,7 +144,7 @@ class OrderService:
             raise ValueError("Trop tard pour annuler : commande expédiée")
         
         order.status = OrderStatus.ANNULEE
-        order.cancelled_at = datetime.utcnow()
+        order.cancelled_at = datetime.now(UTC)
         
         # Restituer le stock
         for item in order.items:
@@ -166,7 +166,7 @@ class OrderService:
             raise ValueError("Commande introuvable ou mauvais statut")
         
         order.status = OrderStatus.VALIDEE
-        order.validated_at = datetime.utcnow()
+        order.validated_at = datetime.now(UTC)
         self.order_repo.update(order)
         
         return order
@@ -187,7 +187,7 @@ class OrderService:
         
         order.delivery_id = delivery.id
         order.status = OrderStatus.EXPEDIEE
-        order.shipped_at = datetime.utcnow()
+        order.shipped_at = datetime.now(UTC)
         self.order_repo.update(order)
         
         return order
@@ -205,7 +205,7 @@ class OrderService:
         self.delivery_service.mark_delivered(order_id)
         
         order.status = OrderStatus.LIVREE
-        order.delivered_at = datetime.utcnow()
+        order.delivered_at = datetime.now(UTC)
         self.order_repo.update(order)
         
         return order
@@ -226,7 +226,7 @@ class OrderService:
         refund = self.payment_service.process_refund(order_id, amount)
         
         order.status = OrderStatus.REMBOURSEE
-        order.refunded_at = datetime.utcnow()
+        order.refunded_at = datetime.now(UTC)
         
         # Restituer le stock si nécessaire
         for item in order.items:

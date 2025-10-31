@@ -139,7 +139,7 @@ async function login({ email, password }) {
  */
 async function me() {
   // Endpoint backend: /me (pas /auth/me)
-  return request("/me");
+  return request("/auth/me");
 }
 
 /**
@@ -222,7 +222,7 @@ async function removeFromCart({ product_id, qty = 1 }) {
 }
 
 async function clearCart() {
-  return request("/cart/clear", { method: "POST" });
+  return request("/cart/clear", { method: "DELETE" });
 }
 
 /**

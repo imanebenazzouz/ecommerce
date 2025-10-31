@@ -266,7 +266,7 @@ export function validateStreetName(streetName) {
 
   // Vérifier le format : lettres, espaces, tirets, apostrophes autorisés
   // Autorise aussi les accents français
-  if (!/^[a-zA-ZÀ-ÿ0-9\s'\-\.]+$/.test(cleaned)) {
+  if (!/^[a-zA-ZÀ-ÿ0-9\s'.-]+$/.test(cleaned)) {
     return {
       valid: false,
       error: 'Nom de rue invalide : lettres, chiffres, espaces, apostrophes et tirets uniquement.'
@@ -375,7 +375,7 @@ export function validateName(name, fieldName = 'Nom') {
 
   // Vérifier le format : lettres, espaces, tirets, apostrophes autorisés
   // Autorise aussi les accents français
-  if (!/^[a-zA-ZÀ-ÿ\s'\-]+$/.test(trimmed)) {
+  if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(trimmed)) {
     return {
       valid: false,
       error: `${fieldName} invalide : lettres, espaces, apostrophes et tirets uniquement.`
@@ -410,7 +410,7 @@ export function validateAddress(address) {
 
   // Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
   // Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
-  if (!/^[a-zA-ZÀ-ÿ0-9\s,.\-']+$/.test(trimmed)) {
+  if (!/^[a-zA-ZÀ-ÿ0-9\s,.'-]+$/.test(trimmed)) {
     return {
       valid: false,
       error: 'L\'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés.'

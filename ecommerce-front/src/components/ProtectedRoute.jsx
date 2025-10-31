@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
  * @returns {JSX.Element}
  */
 export default function ProtectedRoute({ children, requireAuth = true, requireAdmin = false }) {
-  const { isAuthenticated, isAdmin, loading, user } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
 
 
   // Afficher un indicateur de chargement pendant la vérification de l'authentification

@@ -6,11 +6,14 @@ et l'évolution du schéma. Les timestamps sont en UTC via datetime.utcnow.
 """
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
+
+def utcnow():
+    return datetime.now(UTC)
 
 Base = declarative_base()
 
@@ -30,7 +33,7 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     address = Column(Text, nullable=False)
     is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     # Relations
     orders = relationship("Order", back_populates="user")
@@ -50,7 +53,7 @@ class Product(Base):
     price_cents = Column(Integer, nullable=False)
     stock_qty = Column(Integer, nullable=False, default=0)
     active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     # Relations
     cart_items = relationship("CartItem", back_populates="product")
@@ -62,8 +65,8 @@ class Cart(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     
     # Relations
     user = relationship("User", back_populates="cart")
@@ -94,9 +97,7 @@ class Order(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     status = Column(String(50), nullable=False, default="CREE")
-    # Utiliser datetime.utcnow sans parenthèses pour que la fonction soit appelée à chaque insertion
-    # Cela garantit que chaque commande a sa propre date/heure de création
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     validated_at = Column(DateTime)
     shipped_at = Column(DateTime)
     delivered_at = Column(DateTime)
@@ -139,7 +140,7 @@ class Delivery(Base):
     tracking_number = Column(String(100), nullable=True)  # Rendre optionnel
     address = Column(Text, nullable=False)
     delivery_status = Column(String(50), nullable=False, default="PREPAREE")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     # Relations
     order = relationship("Order", back_populates="delivery")
@@ -152,7 +153,7 @@ class Invoice(Base):
     order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     total_cents = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     # Relations
     order = relationship("Order")
@@ -192,8 +193,8 @@ class MessageThread(Base):
     order_id = Column(UUID(as_uuid=True), ForeignKey("orders.id"), nullable=True)  # Ajouter order_id
     subject = Column(String(255), nullable=False)
     closed = Column(Boolean, default=False)  # Utiliser closed au lieu de status
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
     
     # Relations
     user = relationship("User")
@@ -208,7 +209,7 @@ class Message(Base):
     thread_id = Column(UUID(as_uuid=True), ForeignKey("message_threads.id"), nullable=False)
     author_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Rendre optionnel pour les messages admin
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     # Relations
     thread = relationship("MessageThread", back_populates="messages")

@@ -10,7 +10,6 @@ import {
   validateStreetNumber,
   validateStreetName,
   sanitizeNumeric,
-  formatCardNumber
 } from "../utils/validations";
 
 /**

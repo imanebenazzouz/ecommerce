@@ -1,161 +1,363 @@
-"""
-Configuration commune pour tous les tests
-"""
-
+import uuid
 import pytest
-import os
-import sys
-from unittest.mock import Mock, patch
 
-# Ajouter le répertoire parent au path pour les imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# In-memory fake repositories to avoid real DB usage
 
-# Configuration des tests
-TEST_DATABASE_URL = "postgresql://ecommerce:ecommerce123@localhost:5432/ecommerce_test"
-API_BASE_URL = "http://localhost:8000"
-FRONTEND_URL = "http://localhost:5173"
 
-@pytest.fixture(scope="session")
-def test_config():
-    """Configuration pour les tests"""
-    return {
-        "database_url": TEST_DATABASE_URL,
-        "api_base_url": API_BASE_URL,
-        "frontend_url": FRONTEND_URL,
-        "test_user_email": "test@example.com",
-        "test_user_password": "password123",
-        "admin_email": "admin@ecommerce.com",
-        "admin_password": "admin123"
+class FakeUserRepo:
+    def __init__(self):
+        self.users_by_id = {}
+        self.users_by_email = {}
+
+    def create(self, user_data):
+        user_id = str(uuid.uuid4())
+        user = type("User", (), {})()
+        user.id = user_id
+        user.email = user_data["email"]
+        user.password_hash = user_data["password_hash"]
+        user.first_name = user_data.get("first_name")
+        user.last_name = user_data.get("last_name")
+        user.address = user_data.get("address")
+        user.is_admin = bool(user_data.get("is_admin", False))
+        self.users_by_id[user_id] = user
+        self.users_by_email[user.email] = user
+        return user
+
+    def get_by_email(self, email):
+        return self.users_by_email.get(email)
+
+    def get_by_id(self, user_id):
+        return self.users_by_id.get(str(user_id))
+
+
+class FakeProductRepo:
+    def __init__(self):
+        self.products = {}
+
+    def create(self, product_data):
+        pid = str(uuid.uuid4())
+        product = type("Product", (), {})()
+        product.id = pid
+        product.name = product_data["name"]
+        product.price_cents = product_data["price_cents"]
+        product.stock_qty = product_data.get("stock_qty", 0)
+        product.active = product_data.get("active", True)
+        self.products[pid] = product
+        return product
+
+    def get_by_id(self, product_id):
+        return self.products.get(str(product_id))
+
+    def get_all_active(self):
+        return [p for p in self.products.values() if p.active]
+
+    def reserve_stock(self, product_id, quantity):
+        p = self.get_by_id(product_id)
+        if not p or p.stock_qty < quantity:
+            return False
+        p.stock_qty -= quantity
+        return True
+
+    def release_stock(self, product_id, quantity):
+        p = self.get_by_id(product_id)
+        if not p:
+            return False
+        p.stock_qty += quantity
+        return True
+
+    def update(self, product):
+        # No-op for fake
+        return product
+
+
+class FakeCartRepo:
+    def __init__(self):
+        self.carts = {}
+
+    def get_by_user_id(self, user_id):
+        return self.carts.get(str(user_id))
+
+    def create_cart(self, user_id):
+        cart = type("Cart", (), {})()
+        cart.id = str(uuid.uuid4())
+        cart.user_id = str(user_id)
+        cart.items = []
+        self.carts[str(user_id)] = cart
+        return cart
+
+    def add_item(self, user_id, product_id, quantity):
+        cart = self.get_by_user_id(user_id) or self.create_cart(user_id)
+        # item structure
+        item = type("CartItem", (), {})()
+        item.product_id = str(product_id)
+        item.quantity = int(quantity)
+        # merge if exists
+        for it in cart.items:
+            if str(it.product_id) == str(product_id):
+                it.quantity += quantity
+                return True
+        cart.items.append(item)
+        return True
+
+    def remove_item(self, user_id, product_id, quantity):
+        cart = self.get_by_user_id(user_id)
+        if not cart:
+            return False
+        for it in list(cart.items):
+            if str(it.product_id) == str(product_id):
+                if quantity == 0:
+                    cart.items.remove(it)
+                    return True
+                it.quantity -= quantity
+                if it.quantity <= 0:
+                    cart.items.remove(it)
+                return True
+        return False
+
+    def clear(self, user_id):
+        cart = self.get_by_user_id(user_id)
+        if not cart:
+            return False
+        cart.items = []
+        return True
+
+
+class FakeOrderRepo:
+    def __init__(self):
+        self.orders = {}
+
+    def create(self, order_data):
+        oid = str(uuid.uuid4())
+        order = type("Order", (), {})()
+        order.id = oid
+        order.user_id = str(order_data["user_id"])
+        raw_items = order_data.get("items", [])
+        # Normalize to objects with attributes expected by OrderService later
+        norm_items = []
+        for it in raw_items:
+            obj = type("OrderItem", (), {})()
+            obj.product_id = str(it.get("product_id"))
+            obj.name = it.get("name")
+            obj.unit_price_cents = it.get("unit_price_cents", 0)
+            obj.quantity = it.get("quantity", 0)
+            norm_items.append(obj)
+        order.items = norm_items
+        order.status = order_data.get("status")
+        order.payment_id = None
+        order.invoice_id = None
+        def total():
+            return sum(getattr(i, "unit_price_cents", 0) * getattr(i, "quantity", 0) for i in order.items)
+        order.total_cents = total
+        self.orders[oid] = order
+        return order
+
+    def get_by_id(self, order_id):
+        return self.orders.get(str(order_id))
+
+    def list_by_user(self, user_id):
+        return [o for o in self.orders.values() if o.user_id == str(user_id)]
+
+    def update(self, order):
+        self.orders[str(order.id)] = order
+        return order
+
+
+class FakePaymentRepo:
+    def __init__(self):
+        self.payments = {}
+
+    def create(self, data):
+        pid = str(uuid.uuid4())
+        payment = type("Payment", (), {})()
+        payment.id = pid
+        for k, v in data.items():
+            setattr(payment, k, v)
+        self.payments[pid] = payment
+        return payment
+
+    def get_by_id(self, pid):
+        return self.payments.get(str(pid))
+
+    def get_by_order_id(self, order_id):
+        return [p for p in self.payments.values() if getattr(p, "order_id", None) == str(order_id)]
+
+
+class FakeInvoiceRepo:
+    def __init__(self):
+        self.invoices = {}
+
+    def create(self, data):
+        iid = str(uuid.uuid4())
+        invoice = type("Invoice", (), {})()
+        invoice.id = iid
+        for k, v in data.items():
+            setattr(invoice, k, v)
+        self.invoices[iid] = invoice
+        return invoice
+
+
+class FakeDeliveryService:
+    def prepare_delivery(self, order_id):
+        d = type("Delivery", (), {})()
+        d.id = str(uuid.uuid4())
+        return d
+
+    def ship_order(self, order_id):
+        d = type("Delivery", (), {})()
+        d.id = str(uuid.uuid4())
+        return d
+
+    def mark_delivered(self, order_id):
+        return True
+
+
+class FakeBillingService:
+    def __init__(self, invoice_repo: FakeInvoiceRepo):
+        self.invoice_repo = invoice_repo
+
+    def issue_invoice(self, order):
+        return self.invoice_repo.create({"order_id": order.id, "total_cents": order.total_cents()})
+
+
+@pytest.fixture
+def product_repo():
+    return FakeProductRepo()
+
+
+@pytest.fixture
+def user_repo():
+    return FakeUserRepo()
+
+
+@pytest.fixture
+def cart_repo():
+    return FakeCartRepo()
+
+
+@pytest.fixture
+def order_repo():
+    return FakeOrderRepo()
+
+
+@pytest.fixture
+def payment_repo():
+    return FakePaymentRepo()
+
+
+@pytest.fixture
+def invoice_repo():
+    return FakeInvoiceRepo()
+
+
+def _load_module_from_path(name: str, path: str):
+    import importlib.util, sys, os
+    backend_root = "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend"
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    sys.modules[name] = module
+    return module
+
+
+@pytest.fixture
+def auth_service(user_repo):
+    mod = _load_module_from_path(
+        "auth_service_mod",
+        "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend/services/auth_service.py",
+    )
+    return mod.AuthService(user_repo=user_repo)
+
+
+@pytest.fixture
+def catalog_service(product_repo):
+    mod = _load_module_from_path(
+        "catalog_service_mod",
+        "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend/services/catalog_service.py",
+    )
+    return mod.CatalogService(product_repo=product_repo)
+
+
+@pytest.fixture
+def cart_service(cart_repo, product_repo):
+    mod = _load_module_from_path(
+        "cart_service_mod",
+        "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend/services/cart_service.py",
+    )
+    return mod.CartService(cart_repo=cart_repo, product_repo=product_repo)
+
+
+@pytest.fixture
+def payment_service(payment_repo, order_repo):
+    mod = _load_module_from_path(
+        "payment_service_mod",
+        "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend/services/payment_service.py",
+    )
+    # Monkeypatch gateway to deterministic behavior
+    svc = mod.PaymentService(payment_repo=payment_repo, order_repo=order_repo)
+    svc.gateway.charge_card = lambda card, m, y, c, amount, idempotency_key: {
+        "success": not str(card).endswith("0000"),
+        "transaction_id": str(uuid.uuid4()),
+        "failure_reason": None,
     }
+    return svc
+
 
 @pytest.fixture
-def mock_database():
-    """Mock de la base de données pour les tests unitaires"""
-    mock_db = Mock()
-    mock_db.query.return_value.filter.return_value.first.return_value = None
-    mock_db.add.return_value = None
-    mock_db.commit.return_value = None
-    mock_db.refresh.return_value = None
-    return mock_db
+def order_service(order_repo, product_repo, cart_repo, payment_repo, invoice_repo, user_repo, payment_service):
+    mod = _load_module_from_path(
+        "order_service_mod",
+        "/Users/imanebenazzouz/Desktop/ecommerce/ecommerce-backend/services/order_service.py",
+    )
+    delivery = FakeDeliveryService()
+    billing = FakeBillingService(invoice_repo)
+    return mod.OrderService(
+        order_repo=order_repo,
+        product_repo=product_repo,
+        cart_repo=cart_repo,
+        payment_repo=payment_repo,
+        invoice_repo=invoice_repo,
+        user_repo=user_repo,
+        payment_service=payment_service,
+        delivery_service=delivery,
+        billing_service=billing,
+    )
+
 
 @pytest.fixture
-def sample_user_data():
-    """Données d'utilisateur de test"""
-    return {
-        "email": "test@example.com",
-        "password": "password123",
-        "first_name": "Test",
-        "last_name": "User",
-        "address": "123 Test Street"
-    }
+def sample_user(auth_service, user_repo):
+    # Create a user via repo directly with a hashed password
+    pwd_hash = auth_service.hash_password("secret")
+    return user_repo.create({
+        "email": "user@example.com",
+        "password_hash": pwd_hash,
+        "first_name": "U",
+        "last_name": "Ser",
+        "address": "1 Rue Exemple",
+        "is_admin": False,
+    })
+
 
 @pytest.fixture
-def sample_product_data():
-    """Données de produit de test"""
-    return {
-        "name": "Test Product",
-        "description": "A test product",
-        "price_cents": 2999,
-        "stock_qty": 100,
-        "active": True
-    }
+def admin_user(auth_service, user_repo):
+    pwd_hash = auth_service.hash_password("admin")
+    return user_repo.create({
+        "email": "admin@example.com",
+        "password_hash": pwd_hash,
+        "first_name": "Ad",
+        "last_name": "Min",
+        "address": "99 Admin St",
+        "is_admin": True,
+    })
+
 
 @pytest.fixture
-def sample_order_data():
-    """Données de commande de test"""
-    return {
-        "user_id": "test-user-id",
-        "status": "CREE",
-        "items": [
-            {
-                "product_id": "test-product-id",
-                "name": "Test Product",
-                "unit_price_cents": 2999,
-                "quantity": 2
-            }
-        ]
-    }
+def sample_products(product_repo):
+    p1 = product_repo.create({"name": "Widget", "price_cents": 1500, "stock_qty": 10, "active": True})
+    p2 = product_repo.create({"name": "Gadget", "price_cents": 2500, "stock_qty": 0, "active": True})
+    p3 = product_repo.create({"name": "Legacy", "price_cents": 500, "stock_qty": 5, "active": False})
+    return p1, p2, p3
 
-@pytest.fixture
-def sample_payment_data():
-    """Données de paiement de test"""
-    return {
-        "card_number": "4242424242424242",
-        "exp_month": 12,
-        "exp_year": 2025,
-        "cvc": "123"
-    }
 
-# Marqueurs pour les différents types de tests
-def pytest_configure(config):
-    """Configuration des marqueurs pytest"""
-    config.addinivalue_line("markers", "unit: Tests unitaires")
-    config.addinivalue_line("markers", "integration: Tests d'intégration")
-    config.addinivalue_line("markers", "e2e: Tests end-to-end")
-    config.addinivalue_line("markers", "slow: Tests lents")
-    config.addinivalue_line("markers", "auth: Tests d'authentification")
-    config.addinivalue_line("markers", "products: Tests de produits")
-    config.addinivalue_line("markers", "cart: Tests de panier")
-    config.addinivalue_line("markers", "orders: Tests de commandes")
-    config.addinivalue_line("markers", "payments: Tests de paiements")
-    config.addinivalue_line("markers", "admin: Tests d'administration")
-
-# Configuration des logs pour les tests
-def pytest_runtest_setup(item):
-    """Setup avant chaque test"""
-    print(f"\n🧪 Exécution du test: {item.name}")
-
-def pytest_runtest_teardown(item):
-    """Teardown après chaque test"""
-    print(f"✅ Test terminé: {item.name}")
-
-# Gestion des erreurs communes
-@pytest.fixture(autouse=True)
-def setup_test_environment():
-    """Setup automatique pour tous les tests"""
-    # Configuration de l'environnement de test
-    os.environ["TESTING"] = "true"
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
-    
-    yield
-    
-    # Nettoyage après les tests
-    if "TESTING" in os.environ:
-        del os.environ["TESTING"]
-
-# --- Fixtures utilitaires E2E ---
-@pytest.fixture
-def api_base_url():
-    return API_BASE_URL
-
-@pytest.fixture
-def token(api_base_url):
-    """Fournit un token JWT valide pour les tests E2E.
-
-    - Tente d'inscrire un utilisateur aléatoire, sinon se connecte
-    - Retourne une chaîne de token (clé "token" si dispo, sinon "access_token")
-    """
-    import requests, os
-    email = f"test{os.urandom(6).hex()}@example.com"
-    password = "password123"
-    user_payload = {
-        "email": email,
-        "password": password,
-        "first_name": "Test",
-        "last_name": "User",
-        "address": "123 Test Street"
-    }
-    try:
-        # Inscription
-        r = requests.post(f"{api_base_url}/auth/register", json=user_payload, timeout=5)
-        if r.status_code == 200:
-            data = r.json()
-            return data.get("token") or data.get("access_token")
-        # Sinon login
-        login_payload = {"email": email, "password": password}
-        r = requests.post(f"{api_base_url}/auth/login", json=login_payload, timeout=5)
-        r.raise_for_status()
-        data = r.json()
-        return data.get("token") or data.get("access_token")
-    except Exception:
-        pytest.skip("API non disponible pour les tests E2E (localhost:8000)")

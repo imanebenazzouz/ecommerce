@@ -60,7 +60,11 @@ start_backend() {
     
     # Installer systématiquement les dépendances (évite les modules manquants comme psycopg2)
     print_message "📥 Installation des dépendances Python..." $YELLOW
-    pip install --upgrade --no-cache-dir -r requirements.txt
+    if [ -f "requirements_python313.txt" ]; then
+        pip install --upgrade --no-cache-dir -r requirements_python313.txt
+    else
+        pip install --upgrade --no-cache-dir -r requirements.txt
+    fi
     
     # Vérifier si PostgreSQL est disponible
     if ! pg_isready -h localhost -p 5432 >/dev/null 2>&1; then
@@ -88,7 +92,7 @@ start_backend() {
     # Démarrer l'API
     print_message "🌐 Démarrage de l'API sur http://localhost:8000" $GREEN
     print_message "📚 Documentation: http://localhost:8000/docs" $GREEN
-    uvicorn api_unified:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn api:app --host 0.0.0.0 --port 8000 --reload
 }
 
 # Fonction pour démarrer le frontend

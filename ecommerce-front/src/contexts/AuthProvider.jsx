@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 // Contexte d'authentification complet avec persistance localStorage et API.
 import { api } from '../lib/api';
 import { AuthContext } from './AuthContext';
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
           const userData = await api.me();
           setUser(userData);
         }
-      } catch (error) {
+      } catch {
         console.warn('Token invalide, déconnexion automatique');
         clearAuth();
       } finally {
