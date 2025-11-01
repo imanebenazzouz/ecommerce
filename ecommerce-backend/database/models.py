@@ -214,3 +214,23 @@ class Message(Base):
     # Relations
     thread = relationship("MessageThread", back_populates="messages")
     author = relationship("User")
+
+class PasswordResetToken(Base):
+    """Token de réinitialisation de mot de passe.
+    
+    - Token unique généré pour chaque demande de réinitialisation
+    - Expiration après 1 heure pour la sécurité
+    - Lié à un utilisateur via user_id
+    - used: indique si le token a déjà été utilisé
+    """
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    token = Column(String(255), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=utcnow)
+    
+    # Relations
+    user = relationship("User")

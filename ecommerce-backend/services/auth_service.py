@@ -15,12 +15,14 @@ import jwt
 import bcrypt
 import hashlib
 import time
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 from database.database import SessionLocal  # for default repo creation
-from database.models import User
+from database.models import User, PasswordResetToken
 from database.repositories_simple import PostgreSQLUserRepository
 from enums import OrderStatus
+from sqlalchemy.orm import Session
 
 class AuthService:
     """Service centralisant les opérations d'authentification et d'identité."""
@@ -131,3 +133,113 @@ class AuthService:
     # Alias attendu par certains tests unitaires
     def register_user(self, email: str, password: str, first_name: str, last_name: str, address: str) -> User:
         return self.register(email, password, first_name, last_name, address)
+    
+    # ============================== Récupération de mot de passe ==============================
+    
+    def generate_reset_token(self, email: str) -> Optional[str]:
+        """Génère un token de réinitialisation de mot de passe pour un utilisateur.
+        
+        Args:
+            email: Email de l'utilisateur
+            
+        Returns:
+            Le token généré ou None si l'utilisateur n'existe pas
+        """
+        # Vérifier si l'utilisateur existe
+        user = self.user_repo.get_by_email(email)
+        if not user:
+            # Pour des raisons de sécurité, ne pas révéler si l'email existe ou non
+            # On retourne None mais on ne génère pas de token
+            return None
+        
+        # Générer un token sécurisé
+        token = secrets.token_urlsafe(32)
+        
+        # Calculer l'expiration (1 heure)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        # Créer l'enregistrement du token dans la base de données
+        db = self.user_repo.db
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at,
+            used=False
+        )
+        db.add(reset_token)
+        db.commit()
+        
+        return token
+    
+    def verify_reset_token(self, token: str) -> Optional[User]:
+        """Vérifie la validité d'un token de réinitialisation.
+        
+        Args:
+            token: Le token à vérifier
+            
+        Returns:
+            L'utilisateur associé si le token est valide, None sinon
+        """
+        db = self.user_repo.db
+        
+        # Rechercher le token dans la base de données
+        reset_token = db.query(PasswordResetToken).filter(
+            PasswordResetToken.token == token,
+            PasswordResetToken.used == False,
+            PasswordResetToken.expires_at > datetime.utcnow()
+        ).first()
+        
+        if not reset_token:
+            return None
+        
+        # Récupérer l'utilisateur associé
+        user = db.query(User).filter(User.id == reset_token.user_id).first()
+        return user
+    
+    def reset_password(self, token: str, new_password: str) -> bool:
+        """Réinitialise le mot de passe d'un utilisateur avec un token valide.
+        
+        Args:
+            token: Le token de réinitialisation
+            new_password: Le nouveau mot de passe
+            
+        Returns:
+            True si la réinitialisation a réussi, False sinon
+        """
+        # Vérifier le token
+        user = self.verify_reset_token(token)
+        if not user:
+            return False
+        
+        db = self.user_repo.db
+        
+        # Mettre à jour le mot de passe
+        user.password_hash = self.hash_password(new_password)
+        
+        # Marquer le token comme utilisé
+        reset_token = db.query(PasswordResetToken).filter(
+            PasswordResetToken.token == token
+        ).first()
+        if reset_token:
+            reset_token.used = True
+        
+        db.commit()
+        return True
+    
+    def cleanup_expired_tokens(self) -> int:
+        """Supprime les tokens expirés de la base de données.
+        
+        Returns:
+            Le nombre de tokens supprimés
+        """
+        db = self.user_repo.db
+        
+        # Supprimer les tokens expirés ou déjà utilisés depuis plus de 24h
+        cutoff_time = datetime.utcnow() - timedelta(days=1)
+        deleted = db.query(PasswordResetToken).filter(
+            (PasswordResetToken.expires_at < datetime.utcnow()) |
+            ((PasswordResetToken.used == True) & (PasswordResetToken.created_at < cutoff_time))
+        ).delete()
+        
+        db.commit()
+        return deleted

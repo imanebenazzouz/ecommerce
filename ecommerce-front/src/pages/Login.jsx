@@ -2,7 +2,7 @@
 //
 // Page de connexion: authentifie l'utilisateur et synchronise le panier local.
 import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../hooks/useAuth";
 
@@ -179,10 +179,17 @@ export default function Login() {
             borderRadius: 4,
             cursor: "pointer",
             fontWeight: "bold",
+            marginBottom: 12,
           }}
         >
           {pending ? "Connexion…" : "Se connecter"}
         </button>
+
+        <div style={{ marginTop: 12 }}>
+          <Link to="/forgot-password" style={{ color: "#2563eb", textDecoration: "none", fontSize: 14 }}>
+            Mot de passe oublié ?
+          </Link>
+        </div>
       </form>
     </div>
   );

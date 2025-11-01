@@ -167,6 +167,42 @@ async function logout() {
   }
 }
 
+/**
+ * Request a password reset token for an email address.
+ * @param {{email:string}} params
+ * @returns {Promise<{message:string,token?:string,reset_url?:string}>}
+ */
+async function forgotPassword({ email }) {
+  return request("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Verify if a reset token is valid.
+ * @param {{token:string}} params
+ * @returns {Promise<{valid:boolean,email?:string,message?:string}>}
+ */
+async function verifyResetToken({ token }) {
+  return request("/auth/verify-reset-token", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+/**
+ * Reset password using a valid token.
+ * @param {{token:string,new_password:string}} params
+ * @returns {Promise<{message:string,success:boolean}>}
+ */
+async function resetPassword({ token, new_password }) {
+  return request("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password }),
+  });
+}
+
 /* =========================
    CATALOGUE (public)
    ========================= */
@@ -601,6 +637,7 @@ async function adminPostSupportMessage(threadId, { content }) {
 export const api = {
   // Auth
   register, login, logout, me, updateProfile, setToken,
+  forgotPassword, verifyResetToken, resetPassword,
 
   // Catalogue / Panier / Commandes (user)
   listProducts, getProduct,

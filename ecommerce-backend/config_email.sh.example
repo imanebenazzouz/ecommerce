@@ -1,0 +1,23 @@
+#!/bin/bash
+# Script de configuration email pour Brevo
+# ⚠️ COPIEZ CE FICHIER EN config_email.sh ET REMPLISSEZ VOS VRAIES VALEURS
+
+# IMPORTANT: config_email.sh est dans .gitignore et ne sera JAMAIS commité
+# Pour obtenir une clé API Brevo:
+# 1. Créez un compte sur https://app.brevo.com (gratuit - 300 emails/jour)
+# 2. Menu → SMTP & API → API Keys
+# 3. Créez une nouvelle clé API
+# 4. Copiez la clé ci-dessous
+
+export BREVO_API_KEY="votre-cle-api-brevo-ici"
+export SENDER_EMAIL="votre-email@gmail.com"
+export SENDER_NAME="TechStore"
+export FRONTEND_URL="http://localhost:5173"
+
+echo "✅ Configuration email Brevo appliquée"
+echo "📧 Email expéditeur: $SENDER_EMAIL"
+echo "🌐 Frontend URL: $FRONTEND_URL"
+echo ""
+echo "⚠️  IMPORTANT: Régénérez une nouvelle clé API dans Brevo après ce test !"
+echo "    👉 https://app.brevo.com/settings/keys/api"
+

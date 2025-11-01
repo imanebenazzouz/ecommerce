@@ -21,6 +21,10 @@ config.env.staging
 *.env.*
 !config.env.example
 
+# Scripts avec clés API
+config_email.sh
+*_email.sh
+
 # ===========================================
 # PYTHON - BACKEND
 # ===========================================

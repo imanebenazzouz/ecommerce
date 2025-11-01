@@ -44,6 +44,7 @@ from database.repositories_simple import (
 
 # Import des services métier
 from services.auth_service import AuthService
+from services.email_service import EmailService
 
 # Import des modèles
 from database.models import User, Product, Order, OrderItem, Delivery, Invoice, Payment, MessageThread, Message
@@ -454,6 +455,17 @@ class LoginIn(BaseModel):
 class TokenOut(BaseModel):
     token: str
 
+# ---- Schémas pour récupération de mot de passe ----
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str = Field(min_length=6)
+
+class VerifyTokenIn(BaseModel):
+    token: str
+
 # ---- Schéma pour mise à jour du profil ----
 class UserUpdateIn(BaseModel):
     first_name: Optional[str] = None
@@ -700,11 +712,21 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
     try:
         user_repo = PostgreSQLUserRepository(db)
         auth_service = AuthService(user_repo)
+        email_service = EmailService()
+        
         # Supporte tests: certains utilisent AuthService.register_user
         if hasattr(auth_service, "register_user"):
             u = auth_service.register_user(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
         else:
             u = auth_service.register(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
+        
+        # Envoyer un email de bienvenue
+        try:
+            email_service.send_welcome_email(str(u.email), str(u.first_name))
+        except Exception as email_error:
+            # Ne pas bloquer l'inscription si l'email échoue
+            print(f"⚠️ Erreur lors de l'envoi de l'email de bienvenue: {email_error}")
+        
         token = auth_service.create_access_token({"sub": str(u.id)})
         # Harmoniser: exposer aussi la clé "token" attendue par certains tests
         return {
@@ -773,6 +795,99 @@ def logout(uid: str = Depends(current_user_id)):
     # Avec JWT, pas besoin de gérer la déconnexion côté serveur
     # Le token sera simplement ignoré côté client
     return {"ok": True}
+
+# ========== Récupération de mot de passe ==========
+@app.post("/auth/forgot-password")
+def forgot_password(inp: ForgotPasswordIn, db: Session = Depends(get_db)):
+    """Demande de réinitialisation de mot de passe.
+    
+    Génère un token de réinitialisation et l'envoie par email via Brevo.
+    Pour la sécurité, retourne toujours un message de succès même si l'email n'existe pas.
+    
+    En mode développement (sans BREVO_API_KEY), le token est affiché dans les logs
+    et retourné dans la réponse pour faciliter les tests.
+    """
+    try:
+        user_repo = PostgreSQLUserRepository(db)
+        auth_service = AuthService(user_repo)
+        email_service = EmailService()
+        
+        token = auth_service.generate_reset_token(inp.email)
+        
+        if token:
+            # Envoyer l'email de réinitialisation
+            email_sent = email_service.send_password_reset_email(inp.email, token)
+            
+            # En mode développement (sans clé API Brevo), retourner le token dans la réponse
+            if email_service.dev_mode:
+                return {
+                    "message": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
+                    "token": token,  # MODE DEV UNIQUEMENT
+                    "reset_url": f"{email_service.frontend_url}/reset-password?token={token}",  # MODE DEV UNIQUEMENT
+                    "dev_mode": True
+                }
+            else:
+                # En production, ne jamais retourner le token
+                return {
+                    "message": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
+                    "email_sent": email_sent
+                }
+        else:
+            # Ne pas révéler si l'email existe ou non (sécurité)
+            return {
+                "message": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation."
+            }
+    except Exception as e:
+        # Logger l'erreur mais ne pas l'exposer à l'utilisateur
+        print(f"❌ Erreur lors de la génération du token: {str(e)}")
+        return {
+            "message": "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation."
+        }
+
+@app.post("/auth/verify-reset-token")
+def verify_reset_token(inp: VerifyTokenIn, db: Session = Depends(get_db)):
+    """Vérifie la validité d'un token de réinitialisation."""
+    try:
+        user_repo = PostgreSQLUserRepository(db)
+        auth_service = AuthService(user_repo)
+        
+        user = auth_service.verify_reset_token(inp.token)
+        
+        if user:
+            return {
+                "valid": True,
+                "email": user.email
+            }
+        else:
+            return {
+                "valid": False,
+                "message": "Token invalide ou expiré"
+            }
+    except Exception as e:
+        print(f"Erreur lors de la vérification du token: {str(e)}")
+        raise HTTPException(400, "Erreur lors de la vérification du token")
+
+@app.post("/auth/reset-password")
+def reset_password(inp: ResetPasswordIn, db: Session = Depends(get_db)):
+    """Réinitialise le mot de passe avec un token valide."""
+    try:
+        user_repo = PostgreSQLUserRepository(db)
+        auth_service = AuthService(user_repo)
+        
+        success = auth_service.reset_password(inp.token, inp.new_password)
+        
+        if success:
+            return {
+                "message": "Mot de passe réinitialisé avec succès",
+                "success": True
+            }
+        else:
+            raise HTTPException(400, "Token invalide ou expiré")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erreur lors de la réinitialisation du mot de passe: {str(e)}")
+        raise HTTPException(400, "Erreur lors de la réinitialisation du mot de passe")
 
 # Voir son profil
 @app.get("/auth/me", response_model=UserOut)
