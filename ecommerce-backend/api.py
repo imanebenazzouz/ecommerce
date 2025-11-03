@@ -1371,6 +1371,10 @@ def my_orders(u: User = Depends(current_user), db: Session = Depends(get_db)):
     order_repo = OrderRepo(db) if OrderRepo is not None else PostgreSQLOrderRepository(db)
     orders = order_repo.get_by_user_id(str(u.id))
     
+    # Gérer le cas où orders est None (retourne une liste vide)
+    if orders is None:
+        orders = []
+    
     out = []
     for order in orders:
         delivery_info = None
@@ -1589,6 +1593,10 @@ def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin),
         orders = order_repo.get_by_user_id(user_id)
     else:
         orders = order_repo.get_all()
+    
+    # Gérer le cas où orders est None (retourne une liste vide)
+    if orders is None:
+        orders = []
     
     out = []
     for order in orders:
