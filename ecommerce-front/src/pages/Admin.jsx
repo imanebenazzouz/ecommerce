@@ -23,6 +23,8 @@ export default function Admin() {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [searchMode, setSearchMode] = useState("all"); // "all", "user", "order"
   const [showOrders, setShowOrders] = useState(false);
 
   // Formulaire de création
@@ -65,11 +67,10 @@ export default function Admin() {
   useEffect(() => { load(); }, []);
 
   // Fonction pour charger les commandes
-  async function loadOrders(userId = null) {
+  async function loadOrders(params = {}) {
     setOrdersLoading(true);
     setErr("");
     try {
-      const params = userId ? { user_id: userId } : {};
       const data = await api.adminListOrders(params);
       setOrders(data || []);
     } catch (e) {
@@ -88,13 +89,29 @@ export default function Admin() {
       return;
     }
     setShowOrders(true);
-    await loadOrders(selectedUserId);
+    setSearchMode("user");
+    setSelectedOrderId("");
+    await loadOrders({ user_id: selectedUserId });
+  }
+
+  // Fonction pour rechercher une commande par ID
+  async function handleSearchOrderById() {
+    if (!selectedOrderId.trim()) {
+      setErr("Veuillez saisir un ID de commande.");
+      return;
+    }
+    setShowOrders(true);
+    setSearchMode("order");
+    setSelectedUserId("");
+    await loadOrders({ order_id: selectedOrderId });
   }
 
   // Fonction pour afficher toutes les commandes
   async function handleViewAllOrders() {
     setShowOrders(true);
+    setSearchMode("all");
     setSelectedUserId("");
+    setSelectedOrderId("");
     await loadOrders();
   }
 
@@ -381,23 +398,50 @@ export default function Admin() {
         border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginTop: 20,
         background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.04)"
       }}>
-        <h3 style={{ marginTop: 0, marginBottom: 16 }}>Commandes Clients</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 16 }}>Recherche de Commandes</h3>
         
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="ID utilisateur (optionnel)"
-            value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
-            style={{ ...fieldStyle, width: 200, padding: "8px 12px" }}
-          />
-          <button 
-            onClick={handleViewClientOrders}
-            style={primaryBtn}
-            disabled={ordersLoading}
-          >
-            Voir commandes client
-          </button>
+          {/* Recherche par ID de commande */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="ID de commande (UUID)"
+              value={selectedOrderId}
+              onChange={(e) => setSelectedOrderId(e.target.value)}
+              style={{ ...fieldStyle, width: 250, padding: "8px 12px" }}
+            />
+            <button 
+              onClick={handleSearchOrderById}
+              style={primaryBtn}
+              disabled={ordersLoading}
+            >
+              Rechercher commande
+            </button>
+          </div>
+          
+          <div style={{ width: "100%", height: "1px", background: "#e5e7eb", margin: "8px 0" }}></div>
+          
+          {/* Recherche par ID utilisateur */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="ID utilisateur (UUID)"
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              style={{ ...fieldStyle, width: 250, padding: "8px 12px" }}
+            />
+            <button 
+              onClick={handleViewClientOrders}
+              style={secondaryBtn}
+              disabled={ordersLoading}
+            >
+              Voir commandes client
+            </button>
+          </div>
+          
+          <div style={{ width: "100%", height: "1px", background: "#e5e7eb", margin: "8px 0" }}></div>
+          
+          {/* Voir toutes les commandes */}
           <button 
             onClick={handleViewAllOrders}
             style={secondaryBtn}
@@ -411,7 +455,9 @@ export default function Admin() {
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <h4 style={{ margin: 0 }}>
-                {selectedUserId ? `Commandes du client ${selectedUserId}` : "Toutes les commandes"} ({orders.length})
+                {searchMode === "order" ? `Commande ${selectedOrderId ? selectedOrderId.slice(-8) : ''}` :
+                 searchMode === "user" ? `Commandes du client ${selectedUserId ? selectedUserId.slice(0, 8) + '...' : ''}` :
+                 "Toutes les commandes"} ({orders.length})
               </h4>
               <button onClick={() => setShowOrders(false)} style={secondaryBtn}>
                 Masquer
@@ -485,7 +531,14 @@ export default function Admin() {
                             try {
                               await api.adminValidateOrder(order.id);
                               setMsg(`Commande ${order.id.slice(-8)} validée`);
-                              await loadOrders(selectedUserId || null);
+                              // Recharger selon le mode de recherche actuel
+                              if (searchMode === "order") {
+                                await loadOrders({ order_id: selectedOrderId });
+                              } else if (searchMode === "user") {
+                                await loadOrders({ user_id: selectedUserId });
+                              } else {
+                                await loadOrders();
+                              }
                             } catch (e) {
                               setErr(e.message);
                             }
@@ -502,7 +555,14 @@ export default function Admin() {
                               setErr(""); // Effacer les erreurs précédentes
                               await api.adminShipOrder(order.id);
                               setMsg(`Commande ${order.id.slice(-8)} expédiée`);
-                              await loadOrders(selectedUserId || null);
+                              // Recharger selon le mode de recherche actuel
+                              if (searchMode === "order") {
+                                await loadOrders({ order_id: selectedOrderId });
+                              } else if (searchMode === "user") {
+                                await loadOrders({ user_id: selectedUserId });
+                              } else {
+                                await loadOrders();
+                              }
                             } catch (e) {
                               console.error("Erreur expédition:", e);
                               if (e.status === 422) {
@@ -525,7 +585,14 @@ export default function Admin() {
                             try {
                               await api.adminMarkDelivered(order.id);
                               setMsg(`Commande ${order.id.slice(-8)} marquée livrée`);
-                              await loadOrders(selectedUserId || null);
+                              // Recharger selon le mode de recherche actuel
+                              if (searchMode === "order") {
+                                await loadOrders({ order_id: selectedOrderId });
+                              } else if (searchMode === "user") {
+                                await loadOrders({ user_id: selectedUserId });
+                              } else {
+                                await loadOrders();
+                              }
                             } catch (e) {
                               setErr(e.message);
                             }
@@ -542,7 +609,14 @@ export default function Admin() {
                               try {
                                 await api.adminCancelOrder(order.id);
                                 setMsg(`Commande ${order.id.slice(-8)} annulée`);
-                                await loadOrders(selectedUserId || null);
+                                // Recharger selon le mode de recherche actuel
+                                if (searchMode === "order") {
+                                  await loadOrders({ order_id: selectedOrderId });
+                                } else if (searchMode === "user") {
+                                  await loadOrders({ user_id: selectedUserId });
+                                } else {
+                                  await loadOrders();
+                                }
                               } catch (e) {
                                 setErr(e.message);
                               }

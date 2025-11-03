@@ -1586,11 +1586,23 @@ def admin_reset_products_to_four(u = Depends(require_admin), db: Session = Depen
 
 # ====================== ADMIN: Commandes ======================
 @app.get("/admin/orders", response_model=list[OrderOut])
-def admin_list_orders(user_id: Optional[str] = None, u = Depends(require_admin), db: Session = Depends(get_db)):
+def admin_list_orders(user_id: Optional[str] = None, order_id: Optional[str] = None, u = Depends(require_admin), db: Session = Depends(get_db)):
     order_repo = PostgreSQLOrderRepository(db)
     
-    if user_id:
+    # Priorité 1 : Si order_id est fourni, rechercher cette commande spécifique
+    if order_id:
+        order = order_repo.get_by_id(order_id)
+        if order:
+            orders = [order]
+        else:
+            orders = []
+    # Priorité 2 : Si user_id est fourni, rechercher les commandes de ce client
+    elif user_id:
         orders = order_repo.get_by_user_id(user_id)
+        # Gérer le cas où orders est None (retourne une liste vide)
+        if orders is None:
+            orders = []
+    # Priorité 3 : Sinon, retourner toutes les commandes
     else:
         orders = order_repo.get_all()
     
@@ -2126,6 +2138,10 @@ def list_support_threads(uid: str = Depends(current_user_id), db: Session = Depe
         
         threads = thread_repo.get_by_user_id(uid)
         
+        # Gérer le cas où threads est None (retourne une liste vide)
+        if threads is None:
+            threads = []
+        
         return [
             ThreadOut(
                 id=str(thread.id),
@@ -2237,6 +2253,10 @@ def admin_list_support_threads(u = Depends(require_admin), db: Session = Depends
         thread_repo = PostgreSQLThreadRepository(db)
         
         threads = thread_repo.get_all()
+        
+        # Gérer le cas où threads est None (retourne une liste vide)
+        if threads is None:
+            threads = []
         
         return [
             ThreadOut(
