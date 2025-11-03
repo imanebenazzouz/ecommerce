@@ -153,8 +153,8 @@ export default function AdminSupport() {
   }
 
   return (
-    <div style={{ maxWidth: 1400, margin: "0 auto", padding: 20 }}>
-      <h1>🛠️ Support Admin</h1>
+    <div style={{ maxWidth: 1400, margin: "0 auto", padding: 20, paddingBottom: 120 }}>
+      <h1>Support Admin</h1>
       
       {error && (
         <div style={{ 
@@ -168,9 +168,9 @@ export default function AdminSupport() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 20, height: "70vh" }}>
+      <div style={{ display: "flex", gap: 20, height: "70vh", minHeight: 0 }}>
         {/* Liste des threads */}
-        <div style={{ flex: 1, border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
+        <div style={{ flex: 1, border: "1px solid #ddd", borderRadius: 8, padding: 16, overflowY: "auto" }}>
           <div style={{ marginBottom: 16 }}>
             <h2 style={{ margin: 0, marginBottom: 12 }}>Tous les fils</h2>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -252,7 +252,7 @@ export default function AdminSupport() {
         </div>
 
         {/* Zone de conversation */}
-        <div style={{ flex: 2, border: "1px solid #ddd", borderRadius: 8, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 2, border: "1px solid #ddd", borderRadius: 8, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {selectedThread ? (
             <>
               {/* En-tête du thread */}
@@ -286,7 +286,7 @@ export default function AdminSupport() {
               </div>
 
               {/* Messages */}
-              <div style={{ flex: 1, padding: 16, overflowY: "auto", maxHeight: 400 }}>
+              <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
                 {(selectedThread.messages || []).length === 0 ? (
                   <p style={{ color: "#666", textAlign: "center" }}>
                     Aucun message dans cette conversation

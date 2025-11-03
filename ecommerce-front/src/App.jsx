@@ -1,12 +1,28 @@
-// src/App.jsx
-//
-// Point d'entrée UI: fournit AuthProvider, routes, et navigation principale.
-import React, { useEffect, useState } from "react";
-import { Routes, Route, Link } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthProvider";
-import { useAuth } from "./hooks/useAuth";
-import ProtectedRoute from "./components/ProtectedRoute";
-import Footer from "./components/Footer";
+/*
+========================================
+APP.JSX - POINT D'ENTRÉE DE L'APPLICATION REACT
+========================================
+
+Ce fichier est le CŒUR de votre application frontend React.
+Il définit :
+- La NAVIGATION (menu avec liens)
+- Les ROUTES (URL → Page)
+- L'AUTHENTIFICATION (gestion du contexte utilisateur)
+- La STRUCTURE générale de l'interface
+
+CONCEPTS CLÉS :
+- React Router : gère la navigation (changement de page sans rechargement)
+- AuthProvider : fournit les infos utilisateur à toute l'application
+- ProtectedRoute : empêche l'accès aux pages si pas connecté
+*/
+
+// ========== IMPORTS ==========
+import React, { useEffect, useState } from "react";  // React = bibliothèque pour créer des interfaces
+import { Routes, Route, Link } from "react-router-dom";  // React Router = gestion de la navigation
+import { AuthProvider } from "./contexts/AuthProvider";  // Context d'authentification
+import { useAuth } from "./hooks/useAuth";  // Hook pour accéder aux infos utilisateur
+import ProtectedRoute from "./components/ProtectedRoute";  // Composant pour protéger les routes
+import Footer from "./components/Footer";  // Pied de page
 import Catalog from "./pages/Catalog";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -84,15 +100,15 @@ function AppContent() {
         }}
       >
         {/* Navigation principale */}
-        <Link to="/" style={{ fontWeight: "bold", color: "#1f2937" }}>🏠 Accueil</Link>
-        <Link to="/cart">🛒 Panier</Link>
+        <Link to="/" style={{ fontWeight: "bold", color: "#1f2937" }}>Accueil</Link>
+        <Link to="/cart">Panier</Link>
 
         {/* Navigation pour utilisateurs connectés */}
         {isAuth && (
           <>
-            <Link to="/profile">👤 Mon profil</Link>
-            <Link to="/orders">📦 Mes commandes</Link>
-            <Link to="/support">💬 Support</Link>
+            <Link to="/profile">Mon profil</Link>
+            <Link to="/orders">Mes commandes</Link>
+            <Link to="/support">Support</Link>
           </>
         )}
 
@@ -100,16 +116,16 @@ function AppContent() {
         {role === "admin" && (
           <>
             <span style={{ color: "#dc2626", fontWeight: "bold" }}>|</span>
-            <Link to="/admin" style={{ color: "#dc2626", fontWeight: "bold" }}>⚙️ Administration</Link>
-            <Link to="/admin/support" style={{ color: "#dc2626" }}>📞 Support Admin</Link>
+            <Link to="/admin" style={{ color: "#dc2626", fontWeight: "bold" }}>Administration</Link>
+            <Link to="/admin/support" style={{ color: "#dc2626" }}>Support Admin</Link>
           </>
         )}
 
         {/* Navigation pour utilisateurs non connectés */}
         {!isAuth && (
           <>
-            <Link to="/login" style={{ color: "#059669" }}>🔑 Connexion</Link>
-            <Link to="/register" style={{ color: "#059669" }}>📝 Inscription</Link>
+            <Link to="/login" style={{ color: "#059669" }}>Connexion</Link>
+            <Link to="/register" style={{ color: "#059669" }}>Inscription</Link>
           </>
         )}
 
@@ -134,13 +150,13 @@ function AppContent() {
               }}
               title="Se déconnecter"
             >
-              🚪 Déconnexion
+              Déconnexion
             </button>
           </>
         )}
       </nav>
 
-      <h1>TechStore 🛍️</h1>
+      <h1>TechStore</h1>
 
       <Routes>
         <Route path="/" element={<Catalog />} />

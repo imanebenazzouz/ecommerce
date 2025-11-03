@@ -71,14 +71,14 @@ export default function Orders() {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "CREE": return "📋";
-      case "VALIDEE": return "✅";
-      case "PAYEE": return "💳";
-      case "EXPEDIEE": return "🚚";
-      case "LIVREE": return "📦";
-      case "ANNULEE": return "❌";
-      case "REMBOURSEE": return "💰";
-      default: return "📋";
+      case "CREE": return "";
+      case "VALIDEE": return "";
+      case "PAYEE": return "";
+      case "EXPEDIEE": return "";
+      case "LIVREE": return "";
+      case "ANNULEE": return "";
+      case "REMBOURSEE": return "";
+      default: return "";
     }
   };
 
@@ -168,7 +168,6 @@ export default function Orders() {
           textAlign: "center",
           color: "#6b7280"
         }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
           <p>Vous n'avez pas encore de commandes.</p>
           <Link 
             to="/" 
@@ -250,7 +249,7 @@ export default function Orders() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ color: "#6b7280", fontSize: 12 }}>
-                        📦 {order.delivery.transporteur}
+                        {order.delivery.transporteur}
                         {order.delivery.tracking_number && ` • ${order.delivery.tracking_number}`}
                       </span>
                       <div style={{
@@ -296,7 +295,6 @@ export default function Orders() {
                     e.target.style.transform = "translateY(0)";
                   }}
                 >
-                  <span>👁️</span>
                   Voir le détail
                 </Link>
                 
@@ -308,7 +306,7 @@ export default function Orders() {
                         await api.downloadInvoicePDF(order.id);
                         // Success feedback - could add a toast notification here
                       } catch (err) {
-                        alert("❌ Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
+                        alert("Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
                       } finally {
                         setDownloadingInvoice(null);
                       }
@@ -347,19 +345,17 @@ export default function Orders() {
                   >
                     {downloadingInvoice === order.id ? (
                       <>
-                        <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
-                        Téléchargement...
+                        <span>Téléchargement...</span>
                       </>
                     ) : (
                       <>
-                        <span>📄</span>
-                        Télécharger la facture
+                        <span>Télécharger la facture</span>
                       </>
                     )}
                   </button>
                 )}
 
-                {(order.status === "CREE" || order.status === "PAYEE") && order.status !== "EXPEDIEE" && (
+                {["CREE", "VALIDEE", "PAYEE"].includes(order.status) && (
                   <button
                     onClick={async () => {
                       if (confirm("Êtes-vous sûr de vouloir annuler cette commande ?")) {
@@ -396,7 +392,6 @@ export default function Orders() {
                       e.target.style.transform = "translateY(0)";
                     }}
                   >
-                    <span>❌</span>
                     Annuler
                   </button>
                 )}

@@ -107,7 +107,7 @@ export default function Profile() {
         last_name: updated.last_name || "",
         address: updated.address || "",
       });
-      setSuccess("Profil mis à jour ✅");
+      setSuccess("Profil mis à jour");
     } catch (err) {
       let msg = "Échec de la mise à jour";
       if (err?.message) msg = err.message;

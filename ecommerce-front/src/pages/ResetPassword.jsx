@@ -103,7 +103,7 @@ export default function ResetPassword() {
             maxWidth: 500,
           }}
         >
-          <h3 style={{ margin: "0 0 8px 0" }}>❌ Token invalide</h3>
+          <h3 style={{ margin: "0 0 8px 0" }}>Token invalide</h3>
           <p style={{ margin: "8px 0" }}>
             {error || "Le lien de réinitialisation est invalide ou a expiré."}
           </p>
@@ -135,7 +135,7 @@ export default function ResetPassword() {
             maxWidth: 500,
           }}
         >
-          <h3 style={{ margin: "0 0 8px 0" }}>✅ Mot de passe réinitialisé !</h3>
+          <h3 style={{ margin: "0 0 8px 0" }}>Mot de passe réinitialisé !</h3>
           <p style={{ margin: "8px 0" }}>
             Votre mot de passe a été réinitialisé avec succès.
           </p>

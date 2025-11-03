@@ -91,8 +91,8 @@ class OrderService:
         return order
     
     def pay_by_card(self, order_id: str, card_number: str, exp_month: int, exp_year: int, cvc: str, 
-                   postal_code: str = None, phone: str = None, street_number: str = None, 
-                   street_name: str = None) -> Payment:
+                   postal_code: Optional[str] = None, phone: Optional[str] = None, street_number: Optional[str] = None, 
+                   street_name: Optional[str] = None) -> Payment:
         """Effectue le paiement d'une commande par carte."""
         order = self.order_repo.get_by_id(order_id)
         if not order:
@@ -118,9 +118,9 @@ class OrderService:
         
         if payment.status == "PAID":
             # Mettre à jour le statut de la commande
-            order.status = OrderStatus.PAYEE
-            order.paid_at = datetime.now(UTC)
-            order.payment_id = payment.id
+            order.status = OrderStatus.PAYEE  # type: ignore
+            order.paid_at = datetime.now(UTC)  # type: ignore
+            order.payment_id = payment.id  # type: ignore
             self.order_repo.update(order)
             
             # Générer la facture
@@ -132,7 +132,7 @@ class OrderService:
     
     def view_orders(self, user_id: str) -> List[Order]:
         """Récupère toutes les commandes d'un utilisateur."""
-        return self.order_repo.list_by_user(user_id)
+        return self.order_repo.list_by_user(user_id)  # type: ignore
     
     def request_cancellation(self, user_id: str, order_id: str) -> Order:
         """Demande d'annulation d'une commande par l'utilisateur."""
@@ -143,8 +143,8 @@ class OrderService:
         if order.status in [OrderStatus.EXPEDIEE, OrderStatus.LIVREE]:
             raise ValueError("Trop tard pour annuler : commande expédiée")
         
-        order.status = OrderStatus.ANNULEE
-        order.cancelled_at = datetime.now(UTC)
+        order.status = OrderStatus.ANNULEE  # type: ignore
+        order.cancelled_at = datetime.now(UTC)  # type: ignore
         
         # Restituer le stock
         for item in order.items:
@@ -165,8 +165,8 @@ class OrderService:
         if not order or order.status != OrderStatus.CREE:
             raise ValueError("Commande introuvable ou mauvais statut")
         
-        order.status = OrderStatus.VALIDEE
-        order.validated_at = datetime.now(UTC)
+        order.status = OrderStatus.VALIDEE  # type: ignore
+        order.validated_at = datetime.now(UTC)  # type: ignore
         self.order_repo.update(order)
         
         return order
@@ -185,9 +185,9 @@ class OrderService:
         delivery = self.delivery_service.prepare_delivery(order_id)
         delivery = self.delivery_service.ship_order(order_id)
         
-        order.delivery_id = delivery.id
-        order.status = OrderStatus.EXPEDIEE
-        order.shipped_at = datetime.now(UTC)
+        order.delivery_id = delivery.id  # type: ignore
+        order.status = OrderStatus.EXPEDIEE  # type: ignore
+        order.shipped_at = datetime.now(UTC)  # type: ignore
         self.order_repo.update(order)
         
         return order
@@ -204,8 +204,8 @@ class OrderService:
         
         self.delivery_service.mark_delivered(order_id)
         
-        order.status = OrderStatus.LIVREE
-        order.delivered_at = datetime.now(UTC)
+        order.status = OrderStatus.LIVREE  # type: ignore
+        order.delivered_at = datetime.now(UTC)  # type: ignore
         self.order_repo.update(order)
         
         return order
@@ -225,8 +225,8 @@ class OrderService:
         # Traiter le remboursement
         refund = self.payment_service.process_refund(order_id, amount)
         
-        order.status = OrderStatus.REMBOURSEE
-        order.refunded_at = datetime.now(UTC)
+        order.status = OrderStatus.REMBOURSEE  # type: ignore
+        order.refunded_at = datetime.now(UTC)  # type: ignore
         
         # Restituer le stock si nécessaire
         for item in order.items:

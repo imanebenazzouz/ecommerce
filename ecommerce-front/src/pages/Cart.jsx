@@ -1,121 +1,241 @@
-// src/pages/Cart.jsx
+// ============================================================
+// PAGE CART (Panier d'achat)
+// ============================================================
 //
-// Panier avec fallback local: incrément, décrément, vidage, checkout + paiement.
-import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { api } from "../lib/api";
-import { useAuth } from "../hooks/useAuth";
-import PaymentModal from "../components/PaymentModal";
+// Cette page affiche le panier de l'utilisateur et permet de :
+// - Voir tous les articles ajoutés au panier
+// - Modifier les quantités (incrémenter/décrémenter)
+// - Retirer des articles
+// - Vider complètement le panier
+// - Passer commande (checkout)
+// - Payer la commande
+//
+// FONCTIONNALITÉS AVANCÉES :
+// - Gestion du panier serveur (utilisateur connecté)
+// - Gestion du panier local (utilisateur non connecté)
+// - Fallback automatique sur panier local en cas d'erreur serveur
+// - Synchronisation des données en temps réel
+// - Modal de paiement intégré
+// - Validation du stock avant checkout
+// ============================================================
 
+// ========== IMPORTS ==========
+import React, { useEffect, useMemo, useState } from "react"; // React : bibliothèque UI
+                                                              // useEffect : effets de bord (chargement données)
+                                                              // useMemo : optimisation calculs (éviter recalculs inutiles)
+                                                              // useState : gestion d'état
+import { useNavigate } from "react-router-dom";               // useNavigate : navigation programmée (redirection)
+import { api } from "../lib/api";                             // api : client HTTP pour le backend
+import { useAuth } from "../hooks/useAuth";                   // useAuth : hook d'authentification
+import PaymentModal from "../components/PaymentModal";        // PaymentModal : composant modal de paiement
+
+// ========== COMPOSANT PRINCIPAL ==========
+/**
+ * Composant Cart - Gère l'affichage et les actions du panier
+ * 
+ * Ce composant centralise toute la logique du panier :
+ * - Affichage des articles
+ * - Modification des quantités
+ * - Calcul du total
+ * - Checkout (création de commande)
+ * - Paiement
+ * 
+ * @returns {JSX.Element} La page du panier
+ */
 export default function Cart() {
+  // ===== HOOKS ET ÉTATS =====
+  
+  // isAuthenticated : fonction pour vérifier si l'utilisateur est connecté
+  // authLoading : true pendant la vérification initiale de l'authentification
   const { isAuthenticated, loading: authLoading } = useAuth();
+  
+  // navigate : fonction pour rediriger l'utilisateur vers une autre page
+  // Exemple : navigate('/orders') → redirige vers la page des commandes
   const navigate = useNavigate();
+  
+  // cart : objet contenant les données du panier { items: {...}, total: ... }
+  // Initialisé à null (aucun panier chargé)
   const [cart, setCart] = useState(null);
+  
+  // products : liste de tous les produits disponibles (pour afficher nom, prix, etc.)
+  // Nécessaire car le panier ne contient que les IDs produits et quantités
   const [products, setProducts] = useState([]);
+  
+  // orderId : ID de la commande créée après checkout (pour le paiement)
+  // null = pas de commande en cours
   const [orderId, setOrderId] = useState(null);
+  
+  // err : message d'erreur à afficher (ex: "Stock insuffisant")
   const [err, setErr] = useState("");
+  
+  // msg : message de succès à afficher (ex: "Panier vidé")
   const [msg, setMsg] = useState("");
+  
+  // pending : true pendant les opérations asynchrones (chargement, mise à jour)
+  // Permet d'afficher un indicateur de chargement
   const [pending, setPending] = useState(false);
+  
+  // showPaymentModal : true pour afficher la modal de paiement
+  // false pour la masquer
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  // ===== CHARGEMENT INITIAL DU PANIER =====
+  /**
+   * useEffect : s'exécute au montage du composant et quand isAuthenticated change
+   * 
+   * Logique :
+   * 1. Attendre que l'authentification soit chargée
+   * 2. Charger la liste des produits (pour afficher nom, prix, stock)
+   * 3. Charger le panier :
+   *    - Si connecté → panier serveur (via API)
+   *    - Si non connecté → panier local (localStorage)
+   *    - En cas d'erreur → fallback sur panier local
+   */
   useEffect(() => {
     // Attendre que l'authentification soit complètement chargée
+    // Évite les appels API inutiles pendant la vérification initiale
     if (authLoading) {
       return;
     }
 
+    // Fonction asynchrone immédiatement invoquée
     (async () => {
       try {
-        setErr(""); // Réinitialiser les erreurs
-        setPending(true);
+        setErr("");       // Réinitialiser les messages d'erreur
+        setPending(true); // Afficher l'indicateur de chargement
         
-        // Charger les produits d'abord
+        // Étape 1 : Charger la liste complète des produits
+        // Nécessaire pour afficher nom, prix, stock de chaque article du panier
         const ps = await api.listProducts();
         setProducts(ps);
 
+        // Étape 2 : Charger le panier selon l'état de connexion
         if (isAuthenticated()) {
-          // Utilisateur connecté : récupérer le panier du serveur
+          // ===== UTILISATEUR CONNECTÉ =====
+          // Essayer de récupérer le panier depuis le serveur
           try {
-            const c = await api.getCart();
+            const c = await api.getCart(); // GET /cart → panier serveur
             setCart(c);
           } catch (cartError) {
+            // En cas d'erreur, fallback automatique sur le panier local
             console.warn('Erreur chargement panier serveur:', cartError);
+            
             if (cartError.status === 401) {
-              // Session expirée, basculer sur le panier local
+              // Session expirée → panier local
               const localCart = getLocalCart();
               setCart(localCart);
               setErr("Session expirée, utilisation du panier local");
             } else {
-              // Autre erreur, essayer le panier local en fallback
+              // Autre erreur (serveur indisponible, etc.) → panier local
               const localCart = getLocalCart();
               setCart(localCart);
               setErr(`Erreur serveur: ${cartError.message}. Utilisation du panier local.`);
             }
           }
         } else {
-          // Utilisateur non connecté : récupérer le panier local
+          // ===== UTILISATEUR NON CONNECTÉ =====
+          // Utiliser directement le panier local (localStorage)
           const localCart = getLocalCart();
           setCart(localCart);
         }
       } catch (e) {
+        // Erreur générale (chargement produits échoué, etc.)
         console.error('Erreur chargement général:', e);
-        // En cas d'erreur générale, essayer au moins le panier local
+        // Fallback : au moins afficher le panier local
         const localCart = getLocalCart();
         setCart(localCart);
         setErr(`Erreur de chargement: ${e.message}. Utilisation du panier local.`);
       } finally {
+        // Toujours désactiver l'indicateur de chargement à la fin
         setPending(false);
       }
     })();
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading]); // Se ré-exécute si l'état de connexion change
 
-  // Fonction pour récupérer le panier local
+  // ===== FONCTIONS UTILITAIRES PANIER LOCAL =====
+  
+  /**
+   * Récupère le panier local depuis le localStorage
+   * @returns {Object} Panier local { items: {...} } ou panier vide si inexistant
+   */
   function getLocalCart() {
     const localCartData = localStorage.getItem('localCart');
     return localCartData ? JSON.parse(localCartData) : { items: {} };
   }
 
-  // Fonction pour sauvegarder le panier local
+  /**
+   * Sauvegarde le panier local dans le localStorage
+   * @param {Object} cartData - Données du panier à sauvegarder
+   */
   function saveLocalCart(cartData) {
     localStorage.setItem('localCart', JSON.stringify(cartData));
   }
 
-  // Maps utiles
+  // ===== MAPS OPTIMISÉES (USEMEMO) =====
+  // useMemo : évite de recalculer ces maps à chaque render
+  // Ne recalcule que si 'products' change
+  
+  /**
+   * Map : product_id → prix en centimes
+   * Permet un accès rapide au prix d'un produit : priceById.get(id)
+   */
   const priceById = useMemo(() => {
     const m = new Map();
     products.forEach((p) => {
-      // Adapter aux différents formats d'API
+      // Compatibilité avec différents formats d'API
       const price = p.price_cents || (p.price ? Math.round(p.price * 100) : 0);
       m.set(p.id, price);
     });
     return m;
   }, [products]);
 
+  /**
+   * Map : product_id → nom du produit
+   * Permet un accès rapide au nom : nameById.get(id)
+   */
   const nameById = useMemo(() => {
     const m = new Map();
     products.forEach((p) => m.set(p.id, p.name));
     return m;
   }, [products]);
 
-  // Stock par produit (pour vérifier le panier local hors connexion)
+  /**
+   * Map : product_id → stock disponible
+   * Utilisé pour valider le panier local (hors connexion)
+   */
   const stockById = useMemo(() => {
     const m = new Map();
     products.forEach((p) => m.set(p.id, p.stock_qty || p.stock || 0));
     return m;
   }, [products]);
 
+  // Formateur de prix (ex: 1250 → "12,50 €")
   const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
+  /**
+   * Liste des articles du panier sous forme de tableau
+   * useMemo : recalcule uniquement si 'cart' change
+   */
   const items = useMemo(() => Object.values(cart?.items || {}), [cart]);
 
+  /**
+   * Calcul du total du panier en centimes
+   * useMemo : recalcule uniquement si items ou priceById change
+   */
   const totalCents = useMemo(() => {
     if (!cart) return 0;
+    // reduce : somme de (prix unitaire * quantité) pour chaque article
     return items.reduce((sum, it) => {
       const unit = priceById.get(it.product_id) || 0;
       return sum + unit * it.quantity;
     }, 0);
   }, [items, priceById, cart]);
 
+  // ===== FONCTION DE RECHARGEMENT DU PANIER =====
+  /**
+   * Recharge le panier depuis le serveur ou le localStorage
+   * Appelée après chaque modification (ajout, retrait, etc.)
+   */
   async function reload() {
     try {
       if (isAuthenticated()) {
@@ -124,14 +244,12 @@ export default function Cart() {
           setCart(c);
           setErr(""); // Effacer les erreurs en cas de succès
         } catch (cartError) {
-          // Erreur lors du rechargement du panier serveur - utiliser panier local
+          // Fallback sur panier local en cas d'erreur serveur
           if (cartError.status === 401) {
-            // Session expirée, basculer sur le panier local
             const localCart = getLocalCart();
             setCart(localCart);
             setErr("Session expirée, utilisation du panier local");
           } else {
-            // Autre erreur, garder le panier local
             const localCart = getLocalCart();
             setCart(localCart);
             setErr(`Erreur serveur: ${cartError.message}. Utilisation du panier local.`);
@@ -140,7 +258,7 @@ export default function Cart() {
       } else {
         const localCart = getLocalCart();
         setCart(localCart);
-        setErr(""); // Effacer les erreurs en cas de succès
+        setErr("");
       }
     } catch (e) {
       console.error('Erreur reload général:', e);
@@ -148,15 +266,21 @@ export default function Cart() {
     }
   }
 
-  // --- Actions ligne ---
+  // ===== ACTIONS SUR LES ARTICLES DU PANIER =====
+  
+  /**
+   * Incrémente la quantité d'un article (+1)
+   * @param {string} product_id - ID du produit à incrémenter
+   */
   async function inc(product_id) {
     setErr(""); setMsg(""); setPending(true);
     try {
       if (isAuthenticated()) {
+        // Utilisateur connecté : ajouter via API
         await api.addToCart({ product_id, qty: 1 });
         await reload();
       } else {
-        // Gestion du panier local
+        // Utilisateur non connecté : modifier le panier local
         const localCart = getLocalCart();
         const available = stockById.get(product_id) || 0;
         const existingQty = localCart.items[product_id]?.quantity || 0;
@@ -277,7 +401,7 @@ export default function Cart() {
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
-    setMsg("✅ Paiement réussi ! Redirection vers vos commandes...");
+    setMsg("Paiement réussi ! Redirection vers vos commandes...");
     
     // Redirection vers les commandes après un délai
     setTimeout(() => {
@@ -328,7 +452,7 @@ export default function Cart() {
           marginBottom: 20 
         }}>
           <p style={{ margin: 0, color: "#0c4a6e", fontWeight: 600 }}>
-            ℹ️ Vous n'êtes pas connecté
+            Vous n'êtes pas connecté
           </p>
           <p style={{ margin: "8px 0 0 0", color: "#0c4a6e", fontSize: 14 }}>
             Vous pouvez modifier votre panier, mais vous devrez vous connecter ou créer un compte pour passer commande.
@@ -346,7 +470,7 @@ export default function Cart() {
           marginBottom: 20 
         }}>
           <p style={{ margin: 0, color: "#92400e", fontWeight: 600 }}>
-            ⚠️ Problème de connexion au serveur
+            Problème de connexion au serveur
           </p>
           <p style={{ margin: "8px 0 0 0", color: "#92400e", fontSize: 14 }}>
             Votre panier local est affiché. Les modifications seront synchronisées dès que la connexion sera rétablie.

@@ -21,14 +21,14 @@ export default function PaiementSecurise() {
 
           <div className="info-box">
             <p>
-              <strong>🛡️ Garantie 100% sécurisé :</strong> Toutes nos transactions sont 
+              <strong>Garantie 100% sécurisé :</strong> Toutes nos transactions sont 
               cryptées et sécurisées selon les normes internationales les plus strictes.
             </p>
           </div>
         </section>
 
         <section className="legal-section">
-          <h2>💳 Moyens de paiement acceptés</h2>
+          <h2>Moyens de paiement acceptés</h2>
           
           <h3>Cartes bancaires</h3>
           <p>
@@ -60,13 +60,12 @@ export default function PaiementSecurise() {
         </section>
 
         <section className="legal-section">
-          <h2>🔐 Technologies de sécurité</h2>
+          <h2>Technologies de sécurité</h2>
           
           <h3>Cryptage SSL/TLS</h3>
           <p>
-            Toutes les pages de notre site sont sécurisées par un certificat SSL/TLS 
-            (reconnaissable au cadenas 🔒 dans la barre d'adresse). Ce protocole crypte 
-            toutes les informations échangées entre votre navigateur et nos serveurs.
+            Toutes les pages de notre site sont sécurisées par un certificat SSL/TLS. 
+            Ce protocole crypte toutes les informations échangées entre votre navigateur et nos serveurs.
           </p>
 
           <h3>Certification PCI-DSS</h3>
@@ -129,7 +128,7 @@ export default function PaiementSecurise() {
         </section>
 
         <section className="legal-section">
-          <h2>💰 Quand êtes-vous débité ?</h2>
+          <h2>Quand êtes-vous débité ?</h2>
           <p>
             Votre carte bancaire est débitée immédiatement lors de la validation 
             de votre commande. Le montant apparaît généralement sur votre compte 
@@ -149,7 +148,7 @@ export default function PaiementSecurise() {
         </section>
 
         <section className="legal-section">
-          <h2>🛡️ Protection contre la fraude</h2>
+          <h2>Protection contre la fraude</h2>
           
           <h3>Détection automatique</h3>
           <p>
@@ -278,7 +277,7 @@ export default function PaiementSecurise() {
         </section>
 
         <section className="legal-section">
-          <h2>📞 Besoin d'aide ?</h2>
+          <h2>Besoin d'aide ?</h2>
           <p>
             Pour toute question concernant le paiement :
           </p>

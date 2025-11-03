@@ -1,39 +1,81 @@
 """
-Service d'authentification et gestion des tokens.
+========================================
+SERVICE D'AUTHENTIFICATION
+========================================
+
+Ce fichier contient TOUTE la logique d'authentification de l'application :
+- Inscription (création de compte)
+- Connexion (login)
+- Génération et vérification de tokens JWT
+- Hachage et vérification de mots de passe
+- Réinitialisation de mot de passe ("mot de passe oublié")
+
+C'est le fichier le PLUS IMPORTANT pour la sécurité de votre application !
 
 Rôles:
-- Hachage et vérification des mots de passe (compat SHA-256 + fallback bcrypt)
-- Création et validation de tokens JWT d'accès
-- Opérations de base de gestion utilisateur (authenticate/register)
+- Hachage et vérification des mots de passe (bcrypt + fallback SHA-256)
+- Création et validation de tokens JWT (JSON Web Tokens)
+- Gestion des comptes utilisateurs
+- Système "mot de passe oublié"
 
-Notes de sécurité:
-- `secret_key` doit être externalisée en production (env / vault)
-- Durées d'expiration raisonnables pour limiter le risque de vol de token
+SÉCURITÉ:
+- Les mots de passe ne sont JAMAIS stockés en clair (uniquement des hash)
+- Les tokens JWT expirent après 30 minutes
+- Les tokens de reset expirent après 1 heure
+- En production, la secret_key doit être dans une variable d'environnement !
 """
 
-import jwt
-import bcrypt
-import hashlib
+# ========== IMPORTS ==========
+import jwt          # Pour créer et vérifier les tokens JWT
+import bcrypt       # Pour hasher les mots de passe de manière sécurisée
+import hashlib      # Fallback pour le hachage (moins sécurisé que bcrypt)
 import time
-import secrets
+import secrets      # Pour générer des tokens aléatoires sécurisés
 from datetime import datetime, timedelta
 from typing import Optional
-from database.database import SessionLocal  # for default repo creation
+from database.database import SessionLocal
 from database.models import User, PasswordResetToken
 from database.repositories_simple import PostgreSQLUserRepository
 from enums import OrderStatus
 from sqlalchemy.orm import Session
 
+# ========================================
+# CLASSE AuthService
+# ========================================
 class AuthService:
-    """Service centralisant les opérations d'authentification et d'identité."""
+    """
+    Service centralisant TOUTES les opérations d'authentification.
+    
+    Cette classe gère :
+    - Le login/logout
+    - L'inscription
+    - La création et vérification de tokens JWT
+    - Le hachage et la vérification de mots de passe
+    - La réinitialisation de mot de passe
+    """
     
     def __init__(self, user_repo: Optional[PostgreSQLUserRepository] = None):
-        # Allow constructing without explicit repo for tests; lazily create one
+        """
+        Initialise le service d'authentification.
+        
+        Arguments:
+            user_repo: Repository pour accéder à la table users (optionnel)
+        """
+        # Repository pour accéder à la base de données users
         self.user_repo = user_repo or PostgreSQLUserRepository(SessionLocal())
+        
+        # ===== CONFIGURATION JWT =====
+        # Secret key : utilisée pour SIGNER les tokens JWT
+        # ⚠️ EN PRODUCTION : mettre cette clé dans une variable d'environnement !
         self.secret_key = "your-secret-key-change-in-production"
-        self.algorithm = "HS256"
+        
+        # Algorithme de signature des tokens
+        self.algorithm = "HS256"  # HS256 = HMAC avec SHA-256
+        
+        # Durée de validité des tokens (30 minutes)
         self.access_token_expire_minutes = 30
-        # Simple session manager to satisfy legacy tests
+        
+        # Simple session manager (pour compatibilité avec d'anciens tests)
         class SessionManager:
             def __init__(self):
                 self._store: dict[str, str] = {}
@@ -44,24 +86,60 @@ class AuthService:
 
         self.sessions = SessionManager()
     
+    # ========================================
+    # MÉTHODES DE GESTION DES MOTS DE PASSE
+    # ========================================
+    
     def hash_password(self, password: str) -> str:
-        """Calcule un hash de mot de passe sécurisé (bcrypt)."""
+        """
+        Hashe un mot de passe de manière SÉCURISÉE avec bcrypt.
+        
+        ⚠️ SÉCURITÉ CRITIQUE ⚠️
+        On ne stocke JAMAIS les mots de passe en clair dans la base de données !
+        On stocke uniquement un "hash" (empreinte cryptographique).
+        
+        Fonctionnement :
+        1. Génère un "salt" aléatoire (grain de sel cryptographique)
+        2. Combine le mot de passe + salt
+        3. Applique l'algorithme bcrypt
+        4. Retourne le hash final
+        
+        Exemple :
+        - Mot de passe : "monmotdepasse123"
+        - Hash bcrypt : "$2b$12$xY8Z4aB...60caractères..."
+        
+        Le hash est IRRÉVERSIBLE : impossible de retrouver le mot de passe original.
+        """
         try:
-            salt = bcrypt.gensalt()
-            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+            salt = bcrypt.gensalt()  # Génère un salt aléatoire
+            hashed = bcrypt.hashpw(password.encode("utf-8"), salt)  # Hash le mot de passe
             return hashed.decode("utf-8")
         except Exception:
-            # Fallback SHA-256 si bcrypt indisponible
+            # Fallback SHA-256 si bcrypt n'est pas disponible (pour les tests)
+            # ⚠️ SHA-256 simple est MOINS SÉCURISÉ que bcrypt !
             sha = hashlib.sha256(password.encode('utf-8')).hexdigest()
             return f"sha256::{sha}"
     
     def verify_password(self, password: str, hashed_password: str) -> bool:
-        """Vérifie qu'un mot de passe correspond au hash enregistré.
-
-        Priorise bcrypt pour la sécurité, avec fallback SHA-256 pour les tests.
+        """
+        Vérifie qu'un mot de passe correspond au hash enregistré.
+        
+        Utilisé lors du LOGIN pour vérifier que le mot de passe saisi est correct.
+        
+        Fonctionnement :
+        1. Récupère le hash stocké en base de données
+        2. Hash le mot de passe saisi avec le même salt
+        3. Compare les deux hash
+        4. Retourne True si identiques, False sinon
+        
+        Exemple d'utilisation :
+        - Utilisateur saisit : "monmotdepasse123"
+        - Hash en BDD : "$2b$12$xY8Z..."
+        - verify_password("monmotdepasse123", "$2b$12$xY8Z...") → True
+        - verify_password("motdepassefaux", "$2b$12$xY8Z...") → False
         """
         try:
-            # Essayer bcrypt en premier (plus sécurisé)
+            # Essayer bcrypt en premier (méthode sécurisée)
             if isinstance(hashed_password, str) and not hashed_password.startswith('sha256::'):
                 return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
             
@@ -74,29 +152,98 @@ class AuthService:
         except Exception:
             return False
     
+    # ========================================
+    # MÉTHODES JWT (JSON WEB TOKENS)
+    # ========================================
+    
     def create_access_token(self, data: dict) -> str:
-        """Crée un token JWT signé contenant les données `data` et une expiration."""
+        """
+        Crée un token JWT (JSON Web Token) pour l'authentification.
+        
+        Un JWT est un "jeton" que le frontend envoie à chaque requête pour prouver son identité.
+        Structure d'un JWT : header.payload.signature (3 parties séparées par des points)
+        
+        Exemple de JWT :
+        eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSIsImV4cCI6MTY5...
+        
+        Arguments:
+            data: Données à inclure dans le token (généralement {"sub": user_id})
+        
+        Retourne:
+            Le token JWT sous forme de chaîne de caractères
+        
+        Le token contient :
+        - Les données fournies (ex: ID utilisateur)
+        - Une date d'expiration (30 minutes après création)
+        - Une signature cryptographique (pour éviter la falsification)
+        """
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+        # Ajouter l'expiration : maintenant + 30 minutes
+        from datetime import UTC
+        expire = datetime.now(UTC) + timedelta(minutes=self.access_token_expire_minutes)
         to_encode.update({"exp": expire})
+        # Encoder et signer le token avec la secret_key
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
     
     def verify_token(self, token: str) -> Optional[dict]:
-        """Vérifie un token JWT et renvoie son payload si valide, sinon None."""
+        """
+        Vérifie un token JWT et extrait ses données.
+        
+        Utilisé à chaque requête authentifiée pour vérifier l'identité de l'utilisateur.
+        
+        Vérifications effectuées :
+        1. Le token a le bon format
+        2. La signature est valide (pas de falsification)
+        3. Le token n'est pas expiré
+        
+        Arguments:
+            token: Le token JWT à vérifier
+        
+        Retourne:
+            - Si valide : le contenu du token (dict avec "sub", "exp", etc.)
+            - Si invalide/expiré : None
+        """
         try:
+            # Décoder et vérifier le token
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
         except jwt.PyJWTError:
+            # Token invalide, expiré, ou signature incorrecte
             return None
     
+    # ========================================
+    # MÉTHODES D'AUTHENTIFICATION
+    # ========================================
+    
     def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        """Retourne l'utilisateur si les identifiants sont valides, sinon None."""
+        """
+        Authentifie un utilisateur (utilisé lors du LOGIN).
+        
+        Flux d'exécution :
+        1. Cherche l'utilisateur par email dans la base de données
+        2. Si trouvé, vérifie que le mot de passe est correct
+        3. Si correct, retourne l'objet User
+        4. Sinon, retourne None
+        
+        Arguments:
+            email: Adresse email de l'utilisateur
+            password: Mot de passe saisi (en clair, sera comparé au hash)
+        
+        Retourne:
+            - Si authentification réussie : l'objet User
+            - Sinon : None
+        """
+        # Étape 1 : Chercher l'utilisateur par email
         user = self.user_repo.get_by_email(email)
         if not user:
-            return None
-        if not self.verify_password(password, user.password_hash):
-            return None
+            return None  # Email n'existe pas
+        
+        # Étape 2 : Vérifier le mot de passe
+        if not self.verify_password(password, user.password_hash):  # type: ignore
+            return None  # Mot de passe incorrect
+        
+        # Étape 3 : Authentification réussie
         return user
 
     # API de compatibilité tests unitaires simples
@@ -113,7 +260,7 @@ class AuthService:
         existing_user = self.user_repo.get_by_email(email)
         if existing_user:
             # Rendre idempotent: si le mot de passe correspond, renvoyer l'utilisateur existant
-            if self.verify_password(password, existing_user.password_hash):
+            if self.verify_password(password, existing_user.password_hash):  # type: ignore
                 return existing_user
             # Sinon, conserver l'erreur actuelle
             raise ValueError("Email déjà utilisé.")
@@ -156,7 +303,8 @@ class AuthService:
         token = secrets.token_urlsafe(32)
         
         # Calculer l'expiration (1 heure)
-        expires_at = datetime.utcnow() + timedelta(hours=1)
+        from datetime import UTC
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
         
         # Créer l'enregistrement du token dans la base de données
         db = self.user_repo.db
@@ -183,10 +331,11 @@ class AuthService:
         db = self.user_repo.db
         
         # Rechercher le token dans la base de données
+        from datetime import UTC
         reset_token = db.query(PasswordResetToken).filter(
             PasswordResetToken.token == token,
             PasswordResetToken.used == False,
-            PasswordResetToken.expires_at > datetime.utcnow()
+            PasswordResetToken.expires_at > datetime.now(UTC)
         ).first()
         
         if not reset_token:
@@ -214,14 +363,14 @@ class AuthService:
         db = self.user_repo.db
         
         # Mettre à jour le mot de passe
-        user.password_hash = self.hash_password(new_password)
+        user.password_hash = self.hash_password(new_password)  # type: ignore
         
         # Marquer le token comme utilisé
         reset_token = db.query(PasswordResetToken).filter(
             PasswordResetToken.token == token
         ).first()
         if reset_token:
-            reset_token.used = True
+            reset_token.used = True  # type: ignore
         
         db.commit()
         return True
@@ -235,9 +384,10 @@ class AuthService:
         db = self.user_repo.db
         
         # Supprimer les tokens expirés ou déjà utilisés depuis plus de 24h
-        cutoff_time = datetime.utcnow() - timedelta(days=1)
+        from datetime import UTC
+        cutoff_time = datetime.now(UTC) - timedelta(days=1)
         deleted = db.query(PasswordResetToken).filter(
-            (PasswordResetToken.expires_at < datetime.utcnow()) |
+            (PasswordResetToken.expires_at < datetime.now(UTC)) |
             ((PasswordResetToken.used == True) & (PasswordResetToken.created_at < cutoff_time))
         ).delete()
         

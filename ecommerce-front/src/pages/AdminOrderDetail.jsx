@@ -78,7 +78,7 @@ export default function AdminOrderDetail() {
     try {
       setError("");
       await api.adminValidateOrder(orderId);
-      setMsg("✅ Commande validée");
+      setMsg("Commande validée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
@@ -92,7 +92,7 @@ export default function AdminOrderDetail() {
     try {
       setError("");
       await api.adminShipOrder(orderId);
-      setMsg("✅ Commande expédiée");
+      setMsg("Commande expédiée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
@@ -112,13 +112,29 @@ export default function AdminOrderDetail() {
     try {
       setError("");
       await api.adminMarkDelivered(orderId);
-      setMsg("✅ Commande marquée comme livrée");
+      setMsg("Commande marquée comme livrée");
       // Recharger la commande
       const updatedOrder = await api.adminGetOrder(orderId);
       setOrder(updatedOrder);
     } catch (err) {
       console.error("Erreur marquage livré:", err);
       setError(err.message || "Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleCancel = async () => {
+    if (confirm("Êtes-vous sûr de vouloir annuler cette commande ?\n\nCette action :\n- Remettra le stock en place\n- Remboursera automatiquement si payée")) {
+      try {
+        setError("");
+        await api.adminCancelOrder(orderId);
+        setMsg("Commande annulée avec succès");
+        // Recharger la commande
+        const updatedOrder = await api.adminGetOrder(orderId);
+        setOrder(updatedOrder);
+      } catch (err) {
+        console.error("Erreur annulation:", err);
+        setError(err.message || "Erreur lors de l'annulation");
+      }
     }
   };
 
@@ -303,7 +319,7 @@ export default function AdminOrderDetail() {
                     fontWeight: 600
                   }}
                 >
-                  ✅ Valider la commande
+                  Valider la commande
                 </button>
               )}
 
@@ -320,7 +336,7 @@ export default function AdminOrderDetail() {
                     fontWeight: 600
                   }}
                 >
-                  🚚 Expédier la commande
+                  Expédier la commande
                 </button>
               )}
 
@@ -337,7 +353,24 @@ export default function AdminOrderDetail() {
                     fontWeight: 600
                   }}
                 >
-                  📦 Marquer comme livrée
+                  Marquer comme livrée
+                </button>
+              )}
+
+              {["CREE", "VALIDEE", "PAYEE"].includes(order.status) && (
+                <button
+                  onClick={handleCancel}
+                  style={{
+                    padding: "12px 16px",
+                    backgroundColor: "#fef2f2",
+                    color: "#dc2626",
+                    border: "2px solid #fecaca",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Annuler la commande
                 </button>
               )}
 

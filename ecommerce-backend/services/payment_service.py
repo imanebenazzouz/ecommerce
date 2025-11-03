@@ -101,7 +101,7 @@ class PaymentService:
         # Récupérer le paiement initial
         initial_payment = None
         if order.payment_id:
-            initial_payment = self.payment_repo.get_by_id(order.payment_id)
+            initial_payment = self.payment_repo.get_by_id(order.payment_id)  # type: ignore
         
         if not initial_payment:
             raise ValueError("Aucun paiement initial trouvé")
@@ -125,4 +125,5 @@ class PaymentService:
     
     def get_payment_by_order(self, order_id: str) -> Optional[Payment]:
         """Récupère le paiement d'une commande."""
-        return self.payment_repo.get_by_order_id(order_id)
+        payments = self.payment_repo.get_by_order_id(order_id)
+        return payments[0] if payments else None

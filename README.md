@@ -208,6 +208,7 @@ Coverage: Tous les endpoints de l'API
 |----------|-------------|
 | [DOCUMENTATION.md](DOCUMENTATION.md) | Documentation technique complète |
 | [PRESENTATION.md](PRESENTATION.md) | Présentation détaillée du projet |
+| **[LIEN_FRONTEND_BACKEND.md](LIEN_FRONTEND_BACKEND.md)** | **🆕 Comment frontend et backend communiquent** |
 | [docs/development/BACKEND.md](docs/development/BACKEND.md) | Guide de développement backend |
 | [docs/development/FRONTEND.md](docs/development/FRONTEND.md) | Guide de développement frontend |
 | [docs/development/DOCKER.md](docs/development/DOCKER.md) | Guide Docker et déploiement |

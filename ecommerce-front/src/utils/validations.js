@@ -347,10 +347,11 @@ export function validateName(name, fieldName = 'Nom') {
     };
   }
 
-  const trimmed = name.trim();
+  // Nettoyer les espaces multiples et trim
+  const cleaned = name.trim().replace(/\s+/g, ' ');
 
   // Vérifier la longueur minimale (au moins 2 caractères)
-  if (trimmed.length < 2) {
+  if (cleaned.length < 2) {
     return {
       valid: false,
       error: `${fieldName} trop court (minimum 2 caractères).`
@@ -358,7 +359,7 @@ export function validateName(name, fieldName = 'Nom') {
   }
 
   // Vérifier la longueur maximale (100 caractères)
-  if (trimmed.length > 100) {
+  if (cleaned.length > 100) {
     return {
       valid: false,
       error: `${fieldName} trop long (maximum 100 caractères).`
@@ -366,7 +367,7 @@ export function validateName(name, fieldName = 'Nom') {
   }
 
   // Vérifier qu'il n'y a pas de chiffres
-  if (/\d/.test(trimmed)) {
+  if (/\d/.test(cleaned)) {
     return {
       valid: false,
       error: `${fieldName} ne doit pas contenir de chiffres.`
@@ -375,7 +376,7 @@ export function validateName(name, fieldName = 'Nom') {
 
   // Vérifier le format : lettres, espaces, tirets, apostrophes autorisés
   // Autorise aussi les accents français
-  if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(trimmed)) {
+  if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(cleaned)) {
     return {
       valid: false,
       error: `${fieldName} invalide : lettres, espaces, apostrophes et tirets uniquement.`
@@ -398,10 +399,11 @@ export function validateAddress(address) {
     };
   }
 
-  const trimmed = address.trim();
+  // Nettoyer les espaces multiples et trim
+  const cleaned = address.trim().replace(/\s+/g, ' ');
 
   // Vérifier la longueur minimale (au moins 10 caractères)
-  if (trimmed.length < 10) {
+  if (cleaned.length < 10) {
     return {
       valid: false,
       error: 'L\'adresse doit contenir au moins 10 caractères (numéro, rue, ville, code postal).'
@@ -410,7 +412,7 @@ export function validateAddress(address) {
 
   // Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
   // Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
-  if (!/^[a-zA-ZÀ-ÿ0-9\s,.'-]+$/.test(trimmed)) {
+  if (!/^[a-zA-ZÀ-ÿ0-9\s,.'-]+$/.test(cleaned)) {
     return {
       valid: false,
       error: 'L\'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés.'
@@ -418,7 +420,7 @@ export function validateAddress(address) {
   }
 
   // Vérifier qu'il y a un code postal (5 chiffres consécutifs)
-  if (!/\b\d{5}\b/.test(trimmed)) {
+  if (!/\b\d{5}\b/.test(cleaned)) {
     return {
       valid: false,
       error: 'L\'adresse doit contenir un code postal valide (5 chiffres).'
@@ -426,7 +428,7 @@ export function validateAddress(address) {
   }
 
   // Vérifier qu'il y a au moins quelques lettres
-  const letterCount = (trimmed.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
+  const letterCount = (cleaned.match(/[a-zA-ZÀ-ÿ]/g) || []).length;
   if (letterCount < 5) {
     return {
       valid: false,

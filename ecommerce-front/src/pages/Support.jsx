@@ -90,7 +90,7 @@ export default function Support() {
     if (newThread.order_id && newThread.order_id.trim()) {
       const orderExists = userOrders.find(order => order.id === newThread.order_id.trim());
       if (!orderExists) {
-        setError("❌ L'ID de commande saisi n'existe pas dans vos commandes. Veuillez utiliser l'autocomplétion ou laisser le champ vide.");
+        setError("L'ID de commande saisi n'existe pas dans vos commandes. Veuillez utiliser l'autocomplétion ou laisser le champ vide.");
         return;
       }
     }
@@ -130,10 +130,10 @@ export default function Support() {
       // Vérifier si l'ID saisi correspond exactement à une commande
       const exactMatch = userOrders.find(order => order.id === value.trim());
       if (exactMatch) {
-        setOrderValidation({ isValid: true, message: "✅ Commande trouvée" });
+        setOrderValidation({ isValid: true, message: "Commande trouvée" });
       } else if (value.trim().length > 8) {
         // Si l'utilisateur a tapé quelque chose de long qui ne correspond à aucune commande
-        setOrderValidation({ isValid: false, message: "❌ Commande introuvable" });
+        setOrderValidation({ isValid: false, message: "Commande introuvable" });
       }
     } else {
       // Afficher toutes les commandes si le champ est vide
@@ -158,7 +158,7 @@ export default function Support() {
     setNewThread({ ...newThread, order_id: orderId });
     setShowOrderSuggestions(false);
     setFilteredOrders([]);
-    setOrderValidation({ isValid: true, message: "✅ Commande sélectionnée" });
+    setOrderValidation({ isValid: true, message: "Commande sélectionnée" });
   };
 
   const sendMessage = async (e) => {
@@ -203,8 +203,8 @@ export default function Support() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 20 }}>
-      <h1>💬 Support Client</h1>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: 20, paddingBottom: 120 }}>
+      <h1>Support Client</h1>
       
       {error && (
         <div style={{ 
@@ -218,9 +218,9 @@ export default function Support() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 20, height: "70vh" }}>
+      <div style={{ display: "flex", gap: 20, height: "70vh", minHeight: 0 }}>
         {/* Liste des threads */}
-        <div style={{ flex: 1, border: "1px solid #ddd", borderRadius: 8, padding: 16 }}>
+        <div style={{ flex: 1, border: "1px solid #ddd", borderRadius: 8, padding: 16, overflowY: "auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2>Mes demandes</h2>
             <button
@@ -290,7 +290,7 @@ export default function Support() {
         </div>
 
         {/* Zone de conversation */}
-        <div style={{ flex: 2, border: "1px solid #ddd", borderRadius: 8, display: "flex", flexDirection: "column" }}>
+        <div style={{ flex: 2, border: "1px solid #ddd", borderRadius: 8, display: "flex", flexDirection: "column", minHeight: 0 }}>
           {selectedThread ? (
             <>
               {/* En-tête du thread */}
@@ -303,7 +303,7 @@ export default function Support() {
               </div>
 
               {/* Messages */}
-              <div style={{ flex: 1, padding: 16, overflowY: "auto", maxHeight: 400 }}>
+              <div style={{ flex: 1, padding: 16, overflowY: "auto" }}>
                 {selectedThread.messages.length === 0 ? (
                   <p style={{ color: "#666", textAlign: "center" }}>
                     Aucun message dans cette conversation
@@ -536,12 +536,12 @@ export default function Support() {
                 )}
                 {!orderValidation.message && userOrders.length > 0 && (
                   <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-                    💡 {userOrders.length} commande(s) disponible(s) - Cliquez ou tapez pour rechercher
+                    {userOrders.length} commande(s) disponible(s) - Cliquez ou tapez pour rechercher
                   </div>
                 )}
                 {!orderValidation.message && userOrders.length === 0 && (
                   <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
-                    ℹ️ Aucune commande disponible. Passez d'abord une commande pour la lier au support.
+                    Aucune commande disponible. Passez d'abord une commande pour la lier au support.
                   </div>
                 )}
               </div>

@@ -69,8 +69,8 @@ class DeliveryService:
         tracking_number = f"TRK-{uuid.uuid4().hex[:10].upper()}"
         
         # Mettre à jour la livraison
-        delivery.tracking_number = tracking_number
-        delivery.delivery_status = DeliveryStatus.EN_COURS
+        delivery.tracking_number = tracking_number  # type: ignore
+        delivery.delivery_status = DeliveryStatus.EN_COURS  # type: ignore
         self.delivery_repo.update(delivery)
         
         return delivery
@@ -81,7 +81,7 @@ class DeliveryService:
         if not delivery:
             raise ValueError("Livraison introuvable")
         
-        delivery.delivery_status = DeliveryStatus.LIVREE
+        delivery.delivery_status = DeliveryStatus.LIVREE  # type: ignore
         self.delivery_repo.update(delivery)
         
         return delivery
@@ -90,15 +90,15 @@ class DeliveryService:
         """Récupère les informations de livraison d'une commande."""
         return self.delivery_repo.get_by_order_id(order_id)
     
-    def update_tracking(self, order_id: str, tracking_number: str, carrier: str = None) -> Delivery:
+    def update_tracking(self, order_id: str, tracking_number: str, carrier: Optional[str] = None) -> Delivery:
         """Met à jour les informations de tracking."""
         delivery = self.delivery_repo.get_by_order_id(order_id)
         if not delivery:
             raise ValueError("Livraison introuvable")
         
-        delivery.tracking_number = tracking_number
+        delivery.tracking_number = tracking_number  # type: ignore
         if carrier:
-            delivery.transporteur = carrier
+            delivery.transporteur = carrier  # type: ignore
         
         self.delivery_repo.update(delivery)
         return delivery

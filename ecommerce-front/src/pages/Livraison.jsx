@@ -10,7 +10,7 @@ export default function Livraison() {
         <p className="last-update">Dernière mise à jour : {new Date().toLocaleDateString('fr-FR')}</p>
 
         <section className="legal-section">
-          <h2>📦 Modes de livraison</h2>
+          <h2>Modes de livraison</h2>
           
           <h3>Livraison Standard (3-5 jours ouvrés)</h3>
           <ul>
@@ -95,7 +95,7 @@ export default function Livraison() {
         </section>
 
         <section className="legal-section">
-          <h2>🏠 Réception de votre commande</h2>
+          <h2>Réception de votre commande</h2>
           
           <h3>Livraison à domicile</h3>
           <p>
@@ -120,7 +120,7 @@ export default function Livraison() {
         </section>
 
         <section className="legal-section">
-          <h2>↩️ Retours</h2>
+          <h2>Retours</h2>
           
           <h3>Droit de rétractation</h3>
           <p>
@@ -180,7 +180,7 @@ export default function Livraison() {
         </section>
 
         <section className="legal-section">
-          <h2>📞 Besoin d'aide ?</h2>
+          <h2>Besoin d'aide ?</h2>
           <p>
             Notre service client est là pour vous accompagner :
           </p>

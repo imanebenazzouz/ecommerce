@@ -28,7 +28,7 @@ export default function Login() {
         const items = Object.values(localCart.items || {});
         
         if (items.length > 0) {
-          console.log(`🛒 Synchronisation de ${items.length} articles du panier local...`);
+          console.log(`Synchronisation de ${items.length} articles du panier local...`);
           
           // Garder trace des articles qui n'ont pas pu être synchronisés
           const failedItems = {};
@@ -38,10 +38,10 @@ export default function Login() {
           for (const item of items) {
             try {
               await api.addToCart({ product_id: item.product_id, qty: item.quantity });
-              console.log(`✅ Article ${item.product_id} (qty: ${item.quantity}) synchronisé`);
+              console.log(`Article ${item.product_id} (qty: ${item.quantity}) synchronisé`);
               successCount++;
             } catch (itemError) {
-              console.warn(`⚠️ Erreur pour l'article ${item.product_id}:`, itemError);
+              console.warn(`Erreur pour l'article ${item.product_id}:`, itemError);
               // Garder l'article dans le panier local s'il n'a pas pu être synchronisé
               failedItems[item.product_id] = item;
             }
@@ -50,17 +50,17 @@ export default function Login() {
           // Si tous les articles ont été synchronisés, vider le panier local
           if (successCount === items.length) {
             localStorage.removeItem('localCart');
-            console.log('✅ Panier local synchronisé et vidé');
+            console.log('Panier local synchronisé et vidé');
           } else {
             // Sinon, garder seulement les articles qui ont échoué
             const remainingCart = { items: failedItems };
             localStorage.setItem('localCart', JSON.stringify(remainingCart));
-            console.log(`⚠️ ${items.length - successCount} article(s) n'ont pas pu être synchronisés (stock insuffisant ou produit indisponible)`);
+            console.log(`${items.length - successCount} article(s) n'ont pas pu être synchronisés (stock insuffisant ou produit indisponible)`);
           }
         }
       }
     } catch (error) {
-      console.warn("❌ Erreur lors de la synchronisation du panier:", error);
+      console.warn("Erreur lors de la synchronisation du panier:", error);
       // Ne pas bloquer la connexion si la synchronisation échoue
     }
   }
@@ -74,7 +74,7 @@ export default function Login() {
     setPending(true);
 
     try {
-      // ✅ Connexion + récupération du rôle
+      // Connexion + récupération du rôle
       const { token, user } = await api.login({ email, password: pwd });
 
       // Utiliser le contexte d'authentification
@@ -86,7 +86,7 @@ export default function Login() {
       // Synchroniser le panier local avec le serveur
       await syncLocalCartToServer();
 
-      // ✅ Redirection vers la page demandée ou l'accueil
+      // Redirection vers la page demandée ou l'accueil
       const nextUrl = searchParams.get('next') || "/";
       navigate(nextUrl);
     } catch (err) {

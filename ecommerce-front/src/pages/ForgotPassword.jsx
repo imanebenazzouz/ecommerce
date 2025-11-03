@@ -109,7 +109,7 @@ export default function ForgotPassword() {
             maxWidth: 500,
           }}
         >
-          <h3 style={{ margin: "0 0 8px 0" }}>✅ Email envoyé !</h3>
+          <h3 style={{ margin: "0 0 8px 0" }}>Email envoyé !</h3>
           <p style={{ margin: "8px 0" }}>
             Si un compte existe avec l'adresse <strong>{email}</strong>, vous recevrez un email
             avec les instructions pour réinitialiser votre mot de passe.

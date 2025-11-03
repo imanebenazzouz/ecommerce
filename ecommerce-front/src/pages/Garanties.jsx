@@ -12,7 +12,7 @@ export default function Garanties() {
         </p>
 
         <section className="legal-section">
-          <h2>🛡️ Garanties légales</h2>
+          <h2>Garanties légales</h2>
           <p>
             En France, tous les produits neufs bénéficient de deux garanties légales 
             automatiques et gratuites, en plus de la garantie commerciale du fabricant.
@@ -81,7 +81,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>⚖️ Garantie des vices cachés</h2>
+          <h2>Garantie des vices cachés</h2>
           
           <h3>Durée</h3>
           <p>
@@ -174,7 +174,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>🔧 Comment faire valoir vos garanties ?</h2>
+          <h2>Comment faire valoir vos garanties ?</h2>
           
           <h3>Étape 1 : Contactez-nous</h3>
           <p>
@@ -229,7 +229,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>⏱️ Délais</h2>
+          <h2>Délais</h2>
           
           <h3>Traitement de votre demande</h3>
           <ul>
@@ -248,7 +248,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>💰 Frais</h2>
+          <h2>Frais</h2>
           
           <h3>Garantie légale</h3>
           <p>
@@ -269,7 +269,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>📝 Conservation des documents</h2>
+          <h2>Conservation des documents</h2>
           <p>
             Pour faciliter la gestion de vos garanties, conservez :
           </p>
@@ -323,7 +323,7 @@ export default function Garanties() {
         </section>
 
         <section className="legal-section">
-          <h2>📞 Service Après-Vente</h2>
+          <h2>Service Après-Vente</h2>
           <p>
             Notre équipe SAV est à votre disposition pour toute question :
           </p>

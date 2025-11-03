@@ -46,7 +46,7 @@ export default function SupportTest() {
   if (!isAuthenticated()) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
-        <h2>❌ Non connecté</h2>
+        <h2>Non connecté</h2>
         <p>Vous devez être connecté pour accéder au support.</p>
       </div>
     );
@@ -82,7 +82,7 @@ export default function SupportTest() {
           borderRadius: 8, 
           marginBottom: 20 
         }}>
-          <h3>❌ Erreur:</h3>
+          <h3>Erreur:</h3>
           <p>{error}</p>
         </div>
       )}

@@ -79,14 +79,14 @@ export default function OrderDetail() {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "CREE": return "📋";
-      case "VALIDEE": return "✅";
-      case "PAYEE": return "💳";
-      case "EXPEDIEE": return "🚚";
-      case "LIVREE": return "📦";
-      case "ANNULEE": return "❌";
-      case "REMBOURSEE": return "💰";
-      default: return "📋";
+      case "CREE": return "";
+      case "VALIDEE": return "";
+      case "PAYEE": return "";
+      case "EXPEDIEE": return "";
+      case "LIVREE": return "";
+      case "ANNULEE": return "";
+      case "REMBOURSEE": return "";
+      default: return "";
     }
   };
 
@@ -293,7 +293,7 @@ export default function OrderDetail() {
           {order.delivery && (
             <div style={{ marginTop: 20 }}>
               <h4 style={{ margin: "0 0 12px 0", fontSize: 16, fontWeight: 600 }}>
-                📦 Suivi de livraison
+                Suivi de livraison
               </h4>
               <div style={{
                 padding: 16,
@@ -341,7 +341,7 @@ export default function OrderDetail() {
                   try {
                     await api.downloadInvoicePDF(order.id);
                   } catch (err) {
-                    alert("❌ Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
+                    alert("Erreur lors du téléchargement de la facture : " + (err.message || "Erreur inconnue"));
                   } finally {
                     setDownloadingInvoice(false);
                   }
@@ -382,19 +382,17 @@ export default function OrderDetail() {
               >
                 {downloadingInvoice ? (
                   <>
-                    <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
                     <span>Téléchargement en cours...</span>
                   </>
                 ) : (
                   <>
-                    <span style={{ fontSize: 20 }}>📄</span>
                     <span>Télécharger la facture PDF</span>
                   </>
                 )}
               </button>
             )}
 
-            {(order.status === "CREE" || order.status === "PAYEE") && order.status !== "EXPEDIEE" && (
+            {["CREE", "VALIDEE", "PAYEE"].includes(order.status) && (
               <button
                 onClick={async () => {
                   if (confirm("Êtes-vous sûr de vouloir annuler cette commande ?")) {

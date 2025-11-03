@@ -138,7 +138,6 @@ async function login({ email, password }) {
  * @returns {Promise<{id:string,email:string,first_name:string,last_name:string,address?:string,is_admin:boolean}>}
  */
 async function me() {
-  // Endpoint backend: /me (pas /auth/me)
   return request("/auth/me");
 }
 
@@ -495,6 +494,15 @@ async function adminMarkDelivered(order_id) {
 }
 
 /**
+ * Admin: cancel an order with automatic refund if paid.
+ * @param {string} order_id
+ * @returns {Promise<object>}
+ */
+async function adminCancelOrder(order_id) {
+  return request(`/admin/orders/${order_id}/cancel`, { method: "POST" });
+}
+
+/**
  * Admin: trigger a refund for an order.
  * @param {string} order_id
  * @param {{amount_cents?:number}} [body]
@@ -659,6 +667,7 @@ export const api = {
   adminGetOrder,
   adminGetOrderStatus,
   adminValidateOrder,
+  adminCancelOrder,
   adminShipOrder,
   adminMarkDelivered,
   adminRefundOrder,

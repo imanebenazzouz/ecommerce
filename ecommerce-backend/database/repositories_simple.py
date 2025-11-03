@@ -299,8 +299,8 @@ class PostgreSQLOrderRepository:
         # Vérifier que created_at a bien été défini
         if not order.created_at:
             # Si par erreur created_at n'est pas défini, le définir maintenant
-            from datetime import datetime
-            order.created_at = datetime.utcnow()
+            from datetime import datetime, UTC
+            order.created_at = datetime.now(UTC)
             self.db.commit()
             self.db.refresh(order)
         
@@ -337,7 +337,8 @@ class PostgreSQLOrderRepository:
         order.status = status
         
         # Mettre à jour les timestamps selon le statut
-        now = datetime.utcnow()
+        from datetime import UTC
+        now = datetime.now(UTC)
         if status == OrderStatus.VALIDEE:
             order.validated_at = now
         elif status == OrderStatus.EXPEDIEE:

@@ -125,7 +125,7 @@ export default function Admin() {
       };
       
       const created = await api.adminCreateProduct(body);
-      setMsg(`✅ Produit créé : ${created.name}`);
+      setMsg(`Produit créé : ${created.name}`);
       setForm({ name: "", description: "", price_eur: "", stock_qty: "", active: true });
       await load();
     } catch (e) {
@@ -161,7 +161,7 @@ export default function Admin() {
         b.stock_qty = Number(b.stock_qty);
       }
       const updated = await api.adminUpdateProduct(id, b);
-      setMsg(`✅ Modifié : ${updated.name}`);
+      setMsg(`Modifié : ${updated.name}`);
       await load();
     } catch (e) {
       console.error("Erreur mise à jour produit:", e);
@@ -174,7 +174,7 @@ export default function Admin() {
     setErr(""); setMsg("");
     try {
       await api.adminDeleteProduct(id);
-      setMsg("🗑️ Produit supprimé");
+      setMsg("Produit supprimé");
       await load();
     } catch (e) {
       console.error("Erreur suppression produit:", e);
@@ -185,7 +185,7 @@ export default function Admin() {
   return (
     <div style={{ padding: 24 }}>
       <header style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>🛠️ Espace administrateur</h2>
+        <h2 style={{ margin: 0 }}>Espace administrateur</h2>
         <p style={{ color: "#64748b", marginTop: 6 }}>
           Gérer le catalogue produits (créer, éditer, supprimer).
         </p>
@@ -381,7 +381,7 @@ export default function Admin() {
         border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, marginTop: 20,
         background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.04)"
       }}>
-        <h3 style={{ marginTop: 0, marginBottom: 16 }}>📦 Commandes Clients</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 16 }}>Commandes Clients</h3>
         
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
           <input
@@ -467,7 +467,7 @@ export default function Admin() {
 
                     {order.delivery && (
                       <div style={{ fontSize: 14, color: "#64748b", marginBottom: 8 }}>
-                        📦 Livraison: {order.delivery.transporteur} - {order.delivery.delivery_status}
+                        Livraison: {order.delivery.transporteur} - {order.delivery.delivery_status}
                         {order.delivery.tracking_number && ` (${order.delivery.tracking_number})`}
                       </div>
                     )}
@@ -484,7 +484,7 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await api.adminValidateOrder(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(-8)} validée`);
+                              setMsg(`Commande ${order.id.slice(-8)} validée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               setErr(e.message);
@@ -501,7 +501,7 @@ export default function Admin() {
                             try {
                               setErr(""); // Effacer les erreurs précédentes
                               await api.adminShipOrder(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(-8)} expédiée`);
+                              setMsg(`Commande ${order.id.slice(-8)} expédiée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               console.error("Erreur expédition:", e);
@@ -524,7 +524,7 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await api.adminMarkDelivered(order.id);
-                              setMsg(`✅ Commande ${order.id.slice(-8)} marquée livrée`);
+                              setMsg(`Commande ${order.id.slice(-8)} marquée livrée`);
                               await loadOrders(selectedUserId || null);
                             } catch (e) {
                               setErr(e.message);
@@ -533,6 +533,24 @@ export default function Admin() {
                           style={{ ...primaryBtn, fontSize: 12, padding: "4px 8px" }}
                         >
                           Marquer livrée
+                        </button>
+                      )}
+                      {["CREE", "VALIDEE", "PAYEE"].includes(order.status) && (
+                        <button 
+                          onClick={async () => {
+                            if (confirm("Annuler cette commande ?\n\nCette action :\n- Remettra le stock\n- Remboursera si payée")) {
+                              try {
+                                await api.adminCancelOrder(order.id);
+                                setMsg(`Commande ${order.id.slice(-8)} annulée`);
+                                await loadOrders(selectedUserId || null);
+                              } catch (e) {
+                                setErr(e.message);
+                              }
+                            }
+                          }}
+                          style={{ ...dangerBtn, fontSize: 12, padding: "4px 8px" }}
+                        >
+                          Annuler
                         </button>
                       )}
                     </div>

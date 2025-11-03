@@ -1,6 +1,10 @@
 """
 API FastAPI principale du projet e‑commerce.
 
+Ce fichier contient TOUS les endpoints (routes) de l'API backend.
+C'est le cœur de votre application : il reçoit les requêtes HTTP du frontend
+et retourne des réponses JSON.
+
 Objectifs:
 - Exposer les endpoints publics (catalogue), authentifiés (panier, commandes), et admin
 - Appliquer les règles métier (stocks, statuts de commande, remboursement)
@@ -15,192 +19,237 @@ Sécurité:
 - Authentification via en‑tête Authorization: Bearer <token>
 - Vérifications d'accès admin par dépendance `require_admin`
 """
-# api_fixed.py
-from fastapi import FastAPI, HTTPException, Depends, Header
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional, List, Any, cast
-import uuid
-import io
-import time
-from datetime import datetime
-from reportlab.lib.pagesizes import letter, A4
+
+# ========== IMPORTS - Bibliothèques externes ==========
+from fastapi import FastAPI, HTTPException, Depends, Header  # FastAPI = framework web Python moderne
+from fastapi.middleware.cors import CORSMiddleware  # CORS = permet au frontend (http://localhost:5173) d'appeler l'API
+from fastapi.responses import FileResponse, Response  # Pour renvoyer des fichiers (ex: PDF de facture)
+from pydantic import BaseModel, EmailStr, Field, field_validator  # Pydantic = validation automatique des données
+from typing import Optional, List, Any, cast  # Typage Python pour meilleure sécurité
+import uuid  # Pour générer des ID uniques (ex: commande-12345)
+import io  # Pour manipuler des fichiers en mémoire
+import time  # Pour mesurer le temps d'exécution
+from datetime import datetime, UTC  # Pour gérer les dates (ex: date de commande)
+from reportlab.lib.pagesizes import letter, A4  # ReportLab = bibliothèque pour générer des PDF
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
-# Import des repositories PostgreSQL
-from database.database import get_db, SessionLocal, create_tables
-from sqlalchemy.orm import Session
+# ========== IMPORTS - Base de données ==========
+# Les "repositories" sont des classes qui parlent directement à PostgreSQL
+from database.database import get_db, SessionLocal, create_tables  # Connexion à la base de données
+from sqlalchemy.orm import Session  # Session = connexion active à la DB
 from database.repositories_simple import (
-    PostgreSQLUserRepository, PostgreSQLProductRepository, 
-    PostgreSQLCartRepository, PostgreSQLOrderRepository,
-    PostgreSQLDeliveryRepository, PostgreSQLInvoiceRepository, 
-    PostgreSQLPaymentRepository, PostgreSQLThreadRepository
+    # Chaque repository gère une table de la base de données :
+    PostgreSQLUserRepository,      # Table "users" - comptes utilisateurs
+    PostgreSQLProductRepository,   # Table "products" - articles en vente
+    PostgreSQLCartRepository,      # Table "cart_items" - paniers des utilisateurs
+    PostgreSQLOrderRepository,     # Table "orders" - commandes passées
+    PostgreSQLDeliveryRepository,  # Table "deliveries" - infos de livraison
+    PostgreSQLInvoiceRepository,   # Table "invoices" - factures générées
+    PostgreSQLPaymentRepository,   # Table "payments" - paiements effectués
+    PostgreSQLThreadRepository     # Table "message_threads" - conversations support client
 )
 
-# Import des services métier
-from services.auth_service import AuthService
-from services.email_service import EmailService
+# ========== IMPORTS - Services métier ==========
+# Les "services" contiennent la logique métier (règles de gestion)
+from services.auth_service import AuthService    # Gère l'authentification (login, JWT, mot de passe)
+from services.email_service import EmailService  # Gère l'envoi d'emails (Brevo API)
 
-# Import des modèles
+# ========== IMPORTS - Modèles de données ==========
+# Les "models" définissent la structure des tables SQL
 from database.models import User, Product, Order, OrderItem, Delivery, Invoice, Payment, MessageThread, Message
-from enums import OrderStatus, DeliveryStatus
-from unittest.mock import Mock  # for test shims
+from enums import OrderStatus, DeliveryStatus  # Enums = constantes pour les statuts (CREE, PAYEE, LIVREE...)
+from unittest.mock import Mock  # Pour les tests unitaires
 
-app = FastAPI(title="Ecommerce API (TP)")
-# --------------------------- Test patch helpers ---------------------------
+# ========== CRÉATION DE L'APPLICATION FASTAPI ==========
+app = FastAPI(title="Ecommerce API (TP)")  # Initialise l'application web
+
+# Fonction helper pour retrouver des classes par leur nom (utilisé dans les tests)
 def _get_repo_class(name: str):
-    """Return repository class, allowing tests to patch via api_unified."""
-    try:
-        from . import api_unified
-        cls = getattr(api_unified, name, None)
-        if cls is not None:
-            return cls
-    except Exception:
-        pass
-    # Fallback to local imports
+    """Retourne une classe de repository à partir de son nom."""
     return globals().get(name)
 
-# -------------------------------- CORS --------------------------------
+# ========== CONFIGURATION CORS ==========
+# CORS = Cross-Origin Resource Sharing
+# Par défaut, un navigateur BLOQUE les requêtes d'un domaine à un autre (sécurité).
+# Exemple : Le frontend (localhost:5173) ne peut PAS appeler l'API (localhost:8000) sans CORS.
+# On doit explicitement autoriser le frontend à appeler notre API.
+
 import os
 
-# Configuration CORS sécurisée
+# Liste des origines (URLs) autorisées à appeler notre API
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Vite dev server
-    "http://localhost:5174",  # Vite dev server (port alternatif)
-    "http://localhost:5175",  # Vite dev server (port alternatif)
-    "http://localhost:5176",  # Vite dev server (port alternatif)
-    "http://localhost:3000",  # React dev server alternatif
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",  # Vite dev server (port alternatif)
-    "http://127.0.0.1:5175",  # Vite dev server (port alternatif)
-    "http://127.0.0.1:5176",  # Vite dev server (port alternatif)
+    "http://localhost:5173",  # Vite dev server (port par défaut)
+    "http://localhost:5174",  # Ports alternatifs si 5173 est occupé
+    "http://localhost:5175",
+    "http://localhost:5176",
+    "http://localhost:3000",  # React dev server (Create React App)
+    "http://127.0.0.1:5173",  # Même chose avec 127.0.0.1 au lieu de localhost
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+    "http://127.0.0.1:5176",
     "http://127.0.0.1:3000",
-    "http://localhost:5178",   # Port alternatif Vite
-    "http://localhost:5181",   # Port alternatif Vite
-    "http://127.0.0.1:5181",   # Port alternatif Vite
-    "http://localhost:5182",   # Port alternatif Vite
-    "http://127.0.0.1:5182",   # Port alternatif Vite
-    "http://localhost:5183",   # Port alternatif Vite
-    "http://127.0.0.1:5183",   # Port alternatif Vite
+    "http://localhost:5178",
+    "http://localhost:5181",
+    "http://127.0.0.1:5181",
+    "http://localhost:5182",
+    "http://127.0.0.1:5182",
+    "http://localhost:5183",
+    "http://127.0.0.1:5183",
 ]
 
-# Ajouter les origines de production si définies
+# En production, on peut ajouter d'autres origines via variable d'environnement
 production_origins = os.getenv("PRODUCTION_ORIGINS")
 if production_origins:
     ALLOWED_ORIGINS.extend(production_origins.split(","))
 
+# Configuration du middleware CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=[
-        "Authorization", 
-        "Content-Type", 
-        "Accept",
-        "Origin",
-        "X-Requested-With"
+    allow_origins=ALLOWED_ORIGINS,      # Origines autorisées (liste blanche)
+    allow_credentials=True,             # Autorise l'envoi de cookies/tokens
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Méthodes HTTP autorisées
+    allow_headers=[                     # En-têtes HTTP autorisés
+        "Authorization",    # Pour envoyer le token JWT
+        "Content-Type",     # Pour spécifier le type de données (JSON)
+        "Accept",          # Type de réponse acceptée
+        "Origin",          # Origine de la requête
+        "X-Requested-With" # Header standard pour les requêtes AJAX
     ],
-    expose_headers=["Content-Length", "Content-Type"],
+    expose_headers=["Content-Length", "Content-Type"],  # Headers exposés au frontend
 )
 
-# --------------------------- Initialisation base de données ---------------------------
-# Créer les tables si elles n'existent pas
+# ========== INITIALISATION BASE DE DONNÉES ==========
+# Créer toutes les tables PostgreSQL au démarrage de l'application
+# Si les tables existent déjà, cette fonction ne fait rien
 create_tables()
 
-# Utilisation du service d'authentification JWT
-
-# Fonction pour initialiser les données de base
+# Fonction pour initialiser des données d'exemple (utile pour le développement/démo)
 def init_sample_data(db: Session):
-    """Initialise des données d'exemple (produits et utilisateurs) si absent."""
+    """
+    Initialise des données d'exemple si la base de données est vide.
+    Cette fonction crée :
+    - 2 produits d'exemple (T-Shirt et Sweat)
+    - 2 utilisateurs d'exemple (Admin et Client)
+    """
+    # Créer les repositories pour accéder aux tables
     product_repo = PostgreSQLProductRepository(db)
     user_repo = PostgreSQLUserRepository(db)
     
-    # Vérifier si des produits existent déjà
+    # ===== CRÉATION DES PRODUITS D'EXEMPLE =====
+    # Vérifier si des produits existent déjà dans la DB
     existing_products = product_repo.get_all_active()
-    if not existing_products:
-        # Créer des produits d'exemple
+    if not existing_products:  # Si la table est vide
+        # Données du premier produit (T-Shirt)
         p1_data = {
-            "name": "T-Shirt Logo",
-            "description": "Coton bio",
-            "price_cents": 1999,
-            "stock_qty": 100,
-            "active": True
+            "name": "T-Shirt Logo",           # Nom du produit
+            "description": "Coton bio",       # Description
+            "price_cents": 1999,              # Prix en centimes (19,99€)
+            "stock_qty": 100,                 # Quantité en stock
+            "active": True                    # Produit actif (visible sur le site)
         }
+        # Données du deuxième produit (Sweat)
         p2_data = {
             "name": "Sweat Capuche", 
             "description": "Molleton",
-            "price_cents": 4999,
+            "price_cents": 4999,              # 49,99€
             "stock_qty": 50,
             "active": True
         }
+        # Insérer les produits dans la base de données
         product_repo.create(p1_data)
         product_repo.create(p2_data)
     
+    # ===== CRÉATION DES UTILISATEURS D'EXEMPLE =====
     # Vérifier si des utilisateurs existent déjà
     existing_users = user_repo.get_all()
-    if not existing_users:
-        # Créer des utilisateurs d'exemple avec des mots de passe hashés correctement
+    if not existing_users:  # Si la table est vide
+        # Créer le service d'authentification pour hasher les mots de passe
         auth_service = AuthService(user_repo)
         
-        # Créer l'admin
+        # Données du compte ADMIN (accès backoffice)
         admin_data = {
             "email": "admin@example.com",
-            "password_hash": auth_service.hash_password("admin123"),  # Mot de passe admin aligné aux tests
+            # IMPORTANT : On stocke le hash du mot de passe, JAMAIS le mot de passe en clair !
+            "password_hash": auth_service.hash_password("admin123"),
             "first_name": "Admin",
             "last_name": "Root",
             "address": "1 Rue du BO",
-            "is_admin": True
+            "is_admin": True  # Ce compte a les droits administrateur
         }
         
-        # Créer le client
+        # Données du compte CLIENT (utilisateur normal)
         user_data = {
             "email": "client@example.com", 
-            "password_hash": auth_service.hash_password("secret"),  # Hash correct du mot de passe
+            "password_hash": auth_service.hash_password("secret"),
             "first_name": "Alice",
             "last_name": "Martin",
             "address": "12 Rue des Fleurs",
-            "is_admin": False
+            "is_admin": False  # Client normal, pas de droits admin
         }
+        # Insérer les utilisateurs dans la base de données
         user_repo.create(admin_data)
         user_repo.create(user_data)
 
-# ------------------------------- Helpers --------------------------------
+# ========== FONCTIONS D'AUTHENTIFICATION (HELPERS) ==========
+# Ces fonctions sont utilisées par FastAPI pour vérifier l'identité de l'utilisateur
+
 def validate_token_format(token: str) -> bool:
-    """Vérifie rapidement le format d'un JWT (3 segments base64url)."""
+    """
+    Vérifie que le token a le bon format JWT.
+    Un JWT valide a 3 parties séparées par des points : header.payload.signature
+    Exemple: eyJhbGc.eyJzdWI.SflKxwRJ
+    """
     import re
-    # JWT format: header.payload.signature (3 parties séparées par des points)
+    # Expression régulière pour vérifier le format
     jwt_pattern = r'^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$'
     return bool(re.match(jwt_pattern, token))
 
 def current_user_id(authorization: Optional[str] = Header(default=None), db: Session = Depends(get_db)) -> str:
-    """Extrait et valide l'identité utilisateur à partir du token JWT.
-
-    Lève HTTP 401 si le token est absent, invalide, ou expiré.
     """
+    Fonction CRITIQUE pour la sécurité !
+    
+    Cette fonction extrait l'ID utilisateur depuis le token JWT envoyé dans le header Authorization.
+    Elle est utilisée par tous les endpoints protégés (panier, commandes, profil...).
+    
+    Flux d'exécution :
+    1. Vérifie que le header Authorization existe
+    2. Extrait le token (après "Bearer ")
+    3. Vérifie le format du token
+    4. Décode le token JWT et vérifie sa signature
+    5. Extrait l'ID utilisateur (champ "sub" du payload)
+    6. Retourne l'ID utilisateur
+    
+    Si une étape échoue, renvoie une erreur 401 Unauthorized.
+    """
+    # Étape 1 : Vérifier que le header Authorization existe et commence par "Bearer "
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "Token manquant (Authorization: Bearer <token>)")
     
+    # Étape 2 : Extraire le token après "Bearer "
+    # Exemple: "Bearer eyJhbGc..." → "eyJhbGc..."
     token = authorization.split(" ", 1)[1].strip()
     
-    # Valider le format du token
+    # Étape 3 : Vérifier que le token a le bon format (3 parties séparées par des points)
     if not validate_token_format(token):
         raise HTTPException(401, "Format de token invalide")
     
-    # Utiliser le service d'authentification JWT
+    # Étape 4 : Utiliser le service d'authentification pour décoder et vérifier le token
     user_repo = PostgreSQLUserRepository(db)
     auth_service = AuthService(user_repo)
     try:
+        # Décode le token JWT et vérifie sa signature
         payload = auth_service.verify_token(token)
+        # Vérifie que le payload contient bien l'ID utilisateur (champ "sub")
         if not payload or "sub" not in payload:
             raise HTTPException(401, "Token invalide ou expiré")
+        # Étape 5 : Retourner l'ID utilisateur
         return payload["sub"]
     except Exception as e:
+        # En cas d'erreur (token expiré, signature invalide, etc.)
         raise HTTPException(401, "Token invalide ou expiré")
 
 # Renvoie l'objet utilisateur courant
@@ -208,16 +257,6 @@ def current_user(authorization: Optional[str] = Header(default=None), db: Sessio
     """Récupère l'objet `User` courant depuis le token Authorization."""
     if not authorization:
         raise HTTPException(401, "Token manquant")
-    
-    # Test compatibility: allow patching via api_unified.current_user
-    try:
-        from . import api_unified
-        overridden = getattr(api_unified, "current_user", None)
-        if isinstance(overridden, Mock):
-            # When patched by tests, simply return the mocked user
-            return overridden()
-    except Exception:
-        pass
 
     try:
         uid = current_user_id(authorization, db)
@@ -234,14 +273,6 @@ def current_user(authorization: Optional[str] = Header(default=None), db: Sessio
 # Vérifie que l'utilisateur est admin
 def require_admin(u: User = Depends(current_user)):
     """Dépendance FastAPI: refuse l'accès si l'utilisateur n'est pas admin."""
-    # Test compatibility: allow patching via api_unified.require_admin
-    try:
-        from . import api_unified
-        overridden = getattr(api_unified, "require_admin", None)
-        if isinstance(overridden, Mock):
-            return overridden()
-    except Exception:
-        pass
 
     if not u.is_admin:
         raise HTTPException(403, "Accès réservé aux administrateurs")
@@ -397,48 +428,56 @@ class RegisterIn(BaseModel):
         """Valide que le nom/prénom ne contient que des lettres (pas de chiffres)"""
         import re
         
-        if not v or len(v.strip()) < 2:
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip()) if v else ""
+        
+        if not cleaned or len(cleaned) < 2:
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} doit contenir au moins 2 caractères")
         
-        if len(v.strip()) > 100:
+        if len(cleaned) > 100:
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} trop long (maximum 100 caractères)")
         
         # Vérifier qu'il n'y a pas de chiffres
-        if re.search(r'\d', v):
+        if re.search(r'\d', cleaned):
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} ne doit pas contenir de chiffres")
         
         # Vérifier le format : lettres, espaces, tirets, apostrophes autorisés (avec accents)
-        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', v.strip()):
+        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', cleaned):
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} invalide : lettres, espaces, apostrophes et tirets uniquement")
         
-        return v.strip()
+        return cleaned
     
     @field_validator('address')
     @classmethod
     def validate_address(cls, v):
         """Valide que l'adresse contient au moins des informations de base"""
-        if not v or len(v.strip()) < 10:
-            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
-        
         import re
+        
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip()) if v else ""
+        
+        if not cleaned or len(cleaned) < 10:
+            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
         
         # Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
         # Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
-        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', v.strip()):
+        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', cleaned):
             raise ValueError("L'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés")
         
-        # Le code postal n'est pas obligatoire dans le test E2E final
+        # Vérifier qu'il y a un code postal (5 chiffres consécutifs)
+        if not re.search(r'\b\d{5}\b', cleaned):
+            raise ValueError("L'adresse doit contenir un code postal valide (5 chiffres)")
         
         # Vérifier qu'il y a au moins quelques lettres
-        letter_count = sum(1 for char in v if char.isalpha())
+        letter_count = sum(1 for char in cleaned if char.isalpha())
         if letter_count < 5:
             raise ValueError("L'adresse doit contenir au moins 5 lettres (nom de rue et ville)")
         
-        return v.strip()
+        return cleaned
 
 class UserOut(BaseModel):
     id: str
@@ -481,25 +520,28 @@ class UserUpdateIn(BaseModel):
         
         import re
         
-        if len(v.strip()) < 2:
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip())
+        
+        if len(cleaned) < 2:
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} doit contenir au moins 2 caractères")
         
-        if len(v.strip()) > 100:
+        if len(cleaned) > 100:
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} trop long (maximum 100 caractères)")
         
         # Vérifier qu'il n'y a pas de chiffres
-        if re.search(r'\d', v):
+        if re.search(r'\d', cleaned):
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} ne doit pas contenir de chiffres")
         
         # Vérifier le format : lettres, espaces, tirets, apostrophes autorisés (avec accents)
-        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', v.strip()):
+        if not re.match(r'^[a-zA-ZÀ-ÿ\s\'\-]+$', cleaned):
             field_name = "Prénom" if info.field_name == 'first_name' else "Nom"
             raise ValueError(f"{field_name} invalide : lettres, espaces, apostrophes et tirets uniquement")
         
-        return v.strip()
+        return cleaned
     
     @field_validator('address')
     @classmethod
@@ -507,25 +549,30 @@ class UserUpdateIn(BaseModel):
         """Valide que l'adresse contient au moins des informations de base"""
         if v is None:
             return v
-            
-        if len(v.strip()) < 10:
-            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
         
         import re
         
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip())
+            
+        if len(cleaned) < 10:
+            raise ValueError("L'adresse doit contenir au moins 10 caractères (rue, ville, code postal)")
+        
         # Vérifier qu'il n'y a pas de symboles interdits (@, #, $, %, &, etc.)
         # Autorise uniquement : lettres, chiffres, espaces, virgules, tirets, apostrophes, points
-        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', v.strip()):
+        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\']+$', cleaned):
             raise ValueError("L'adresse contient des caractères interdits. Seuls les lettres, chiffres, espaces, virgules, points, tirets et apostrophes sont autorisés")
         
-        # Le code postal n'est pas obligatoire dans le test E2E final
+        # Vérifier qu'il y a un code postal (5 chiffres consécutifs)
+        if not re.search(r'\b\d{5}\b', cleaned):
+            raise ValueError("L'adresse doit contenir un code postal valide (5 chiffres)")
         
         # Vérifier qu'il y a au moins quelques lettres
-        letter_count = sum(1 for char in v if char.isalpha())
+        letter_count = sum(1 for char in cleaned if char.isalpha())
         if letter_count < 5:
             raise ValueError("L'adresse doit contenir au moins 5 lettres (nom de rue et ville)")
         
-        return v.strip()
+        return cleaned
 
 class ProductOut(BaseModel):
     id: str
@@ -642,6 +689,27 @@ class InvoiceOut(BaseModel):
 class ThreadCreateIn(BaseModel):
     subject: str
     order_id: Optional[str] = None
+    
+    @field_validator('subject')
+    @classmethod
+    def validate_subject(cls, v):
+        """Valide le sujet du ticket de support"""
+        import re
+        
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip()) if v else ""
+        
+        if not cleaned or len(cleaned) < 3:
+            raise ValueError("Le sujet doit contenir au moins 3 caractères")
+        
+        if len(cleaned) > 200:
+            raise ValueError("Le sujet est trop long (maximum 200 caractères)")
+        
+        # Vérifier qu'il n'y a pas de symboles dangereux
+        if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s,.\-\'?!()]+$', cleaned):
+            raise ValueError("Le sujet contient des caractères interdits")
+        
+        return cleaned
 
 class ThreadOut(BaseModel):
     id: str
@@ -654,6 +722,23 @@ class ThreadOut(BaseModel):
 
 class MessageCreateIn(BaseModel):
     content: str
+    
+    @field_validator('content')
+    @classmethod
+    def validate_content(cls, v):
+        """Valide le contenu du message"""
+        import re
+        
+        # Nettoyer les espaces multiples et trim
+        cleaned = re.sub(r'\s+', ' ', v.strip()) if v else ""
+        
+        if not cleaned or len(cleaned) < 3:
+            raise ValueError("Le message doit contenir au moins 3 caractères")
+        
+        if len(cleaned) > 5000:
+            raise ValueError("Le message est trop long (maximum 5000 caractères)")
+        
+        return cleaned
 
 class MessageOut(BaseModel):
     id: str
@@ -673,62 +758,113 @@ class ThreadDetailOut(BaseModel):
     unread_count: int = 0
     messages: List[MessageOut]
 
-# ------------------------------- Routes --------------------------------
+# ========================================
+# ENDPOINTS HTTP (ROUTES DE L'API)
+# ========================================
+# C'est ici que sont définies toutes les routes accessibles depuis le frontend
+# Format: @app.METHOD("/chemin") où METHOD = get, post, put, delete
+# Exemple: @app.get("/products") → GET http://localhost:8000/products
 
-# Santé / test
+# ========== ENDPOINTS DE TEST/SANTÉ ==========
+# Ces endpoints servent à vérifier que l'API fonctionne
+
 @app.get("/")
 def root():
-    """Endpoint de test rapide: renvoie un message, version et lien docs."""
-    # Harmonisation avec les tests E2E qui attendent "Ecommerce API" dans le message
+    """
+    Endpoint racine : GET /
+    Utilisé pour vérifier que l'API est bien démarrée
+    """
     return {"message": "Ecommerce API - API E-commerce", "version": "1.0", "docs": "/docs"}
 
 @app.get("/health")
 def health_check():
-    """Vérifie l'état de l'API et la cible base de données."""
+    """
+    Endpoint de santé : GET /health
+    Vérifie l'état de l'API et de la connexion à la base de données
+    """
     return {"status": "healthy", "database": "postgresql", "timestamp": time.time()}
 
-# Répondre proprement aux preflight CORS sur la racine
 @app.options("/")
 def options_root():
+    """
+    Endpoint OPTIONS pour gérer les preflight CORS
+    Les navigateurs envoient une requête OPTIONS avant les vrais requêtes (mécanisme de sécurité)
+    """
     return Response(status_code=200, headers={
         "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
         "access-control-allow-headers": "Authorization, Content-Type, Accept, Origin, X-Requested-With",
     })
 
-# Initialisation des données
 @app.post("/init-data")
 def initialize_data(db: Session = Depends(get_db)):
-    """Initialise les données d'exemple dans la base de données"""
+    """
+    Endpoint d'initialisation : POST /init-data
+    Crée des données d'exemple (produits et utilisateurs) pour le développement/démo
+    """
     try:
         init_sample_data(db)
         return {"message": "Données d'exemple initialisées avec succès"}
     except Exception as e:
         raise HTTPException(500, f"Erreur lors de l'initialisation: {str(e)}")
 
-# ---------- Authentification ----------
+# ========================================
+# ENDPOINTS D'AUTHENTIFICATION
+# ========================================
+# Ces endpoints gèrent l'inscription, la connexion et la gestion du mot de passe
+
 @app.post("/auth/register")
 def register(inp: RegisterIn, db: Session = Depends(get_db)):
+    """
+    Endpoint d'inscription : POST /auth/register
+    
+    Permet à un nouvel utilisateur de créer un compte.
+    
+    Données reçues (inp: RegisterIn) :
+    - email : adresse email (doit être unique)
+    - password : mot de passe (sera hashé, jamais stocké en clair)
+    - first_name : prénom
+    - last_name : nom
+    - address : adresse postale
+    
+    Flux d'exécution :
+    1. Créer les repositories et services nécessaires
+    2. Créer l'utilisateur dans la base de données (avec mot de passe hashé)
+    3. Envoyer un email de bienvenue (via Brevo)
+    4. Générer un token JWT pour connecter automatiquement l'utilisateur
+    5. Retourner les infos utilisateur + token
+    
+    Retourne :
+    - message : "Inscription réussie"
+    - user : objet avec les données utilisateur
+    - access_token : token JWT pour les futures requêtes
+    """
     try:
-        user_repo = PostgreSQLUserRepository(db)
-        auth_service = AuthService(user_repo)
-        email_service = EmailService()
+        # Étape 1 : Créer les repositories et services
+        user_repo = PostgreSQLUserRepository(db)  # Pour accéder à la table "users"
+        auth_service = AuthService(user_repo)     # Pour gérer l'authentification (hash password, JWT)
+        email_service = EmailService()             # Pour envoyer des emails
         
-        # Supporte tests: certains utilisent AuthService.register_user
+        # Étape 2 : Créer l'utilisateur dans la base de données
+        # Note : le mot de passe sera automatiquement hashé par le service
         if hasattr(auth_service, "register_user"):
+            # Compatibilité avec différentes versions du service
             u = auth_service.register_user(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
         else:
             u = auth_service.register(inp.email, inp.password, inp.first_name, inp.last_name, inp.address)
         
-        # Envoyer un email de bienvenue
+        # Étape 3 : Envoyer un email de bienvenue
         try:
             email_service.send_welcome_email(str(u.email), str(u.first_name))
         except Exception as email_error:
-            # Ne pas bloquer l'inscription si l'email échoue
+            # Si l'email échoue, on continue quand même (ne pas bloquer l'inscription)
             print(f"⚠️ Erreur lors de l'envoi de l'email de bienvenue: {email_error}")
         
+        # Étape 4 : Générer un token JWT pour connecter automatiquement l'utilisateur
+        # Le token contient l'ID utilisateur dans le champ "sub" (subject)
         token = auth_service.create_access_token({"sub": str(u.id)})
-        # Harmoniser: exposer aussi la clé "token" attendue par certains tests
+        
+        # Étape 5 : Retourner les données utilisateur + token
         return {
             "message": "Inscription réussie",
             "user": {
@@ -737,12 +873,13 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
                 "first_name": str(u.first_name),
                 "last_name": str(u.last_name),
                 "address": str(u.address),
-                "is_admin": bool(u.is_admin),
+                "is_admin": bool(u.is_admin),  # Par défaut False (client normal)
             },
-            "access_token": token,
-            "token": token,
+            "access_token": token,  # Token JWT pour les futures requêtes
+            "token": token,         # Alias pour compatibilité
         }
     except ValueError as e:
+        # Gestion des erreurs métier (email déjà utilisé, mot de passe invalide)
         error_message = str(e)
         if "Email déjà utilisé" in error_message:
             raise HTTPException(400, "Cette adresse email est déjà utilisée")
@@ -750,18 +887,6 @@ def register(inp: RegisterIn, db: Session = Depends(get_db)):
             raise HTTPException(400, "Mot de passe invalide")
         else:
             raise HTTPException(400, "Erreur lors de l'inscription")
-
-@app.get("/me")
-def get_current_user_info(u: User = Depends(current_user)):
-    """Récupère les informations de l'utilisateur connecté."""
-    return {
-        "id": str(u.id),
-        "email": str(u.email),
-        "first_name": str(u.first_name),
-        "last_name": str(u.last_name),
-        "address": str(u.address),
-        "is_admin": bool(u.is_admin),
-    }
 
 @app.post("/auth/login")
 def login(inp: LoginIn, db: Session = Depends(get_db)):
@@ -926,10 +1051,22 @@ def update_profile(inp: UserUpdateIn, u: User = Depends(current_user), db: Sessi
         is_admin=bool(updated_user.is_admin)
     )
 
-# ---------- Produits (public) ----------
+# ========================================
+# ENDPOINTS PRODUITS (PUBLIC)
+# ========================================
+# Ces endpoints sont accessibles sans authentification (PUBLIC)
+# Ils permettent de consulter le catalogue de produits
+
 @app.get("/products", response_model=list[ProductOut])
 def list_products(db: Session = Depends(get_db)):
-    """Récupère tous les produits actifs (endpoint public)."""
+    """
+    Endpoint: GET /products
+    
+    Récupère la liste de TOUS les produits actifs (disponibles à la vente).
+    Endpoint PUBLIC : pas besoin de token JWT pour accéder au catalogue.
+    
+    Retourne : Liste de produits avec leurs infos (nom, prix, description, stock)
+    """
     try:
         RepoCls = _get_repo_class('PostgreSQLProductRepository')
         product_repo = RepoCls(db) if RepoCls is not None else PostgreSQLProductRepository(db)
@@ -974,9 +1111,22 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
         # Erreur lors de la récupération du produit
         raise HTTPException(500, "Erreur lors de la récupération du produit")
 
-# ---------- Panier ----------
+# ========================================
+# ENDPOINTS PANIER (AUTHENTIFIÉ)
+# ========================================
+# Ces endpoints nécessitent une authentification (token JWT requis)
+# Ils permettent de gérer le panier d'achat de l'utilisateur connecté
+
 @app.get("/cart", response_model=CartOut)
 def view_cart(u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """
+    Endpoint: GET /cart
+    
+    Récupère le contenu du panier de l'utilisateur connecté.
+    AUTHENTIFIÉ : nécessite un token JWT valide.
+    
+    Retourne : Le panier avec la liste des articles et le total
+    """
     RepoCls = _get_repo_class('PostgreSQLCartRepository')
     cart_repo = RepoCls(db) if RepoCls is not None else PostgreSQLCartRepository(db)
     c = cart_repo.get_by_user_id(str(u.id))
@@ -1097,7 +1247,16 @@ def clear_cart(u: User = Depends(current_user), db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(400, str(e))
 
-# ---------- Commandes (client) ----------
+# ========================================
+# ENDPOINTS COMMANDES (AUTHENTIFIÉ)
+# ========================================
+# Ces endpoints gèrent le cycle de vie complet d'une commande :
+# 1. Checkout (créer une commande depuis le panier)
+# 2. Consultation des commandes
+# 3. Paiement
+# 4. Annulation
+# 5. Factures et livraisons
+
 @app.post("/orders/checkout", response_model=CheckoutOut)
 def checkout(u: User = Depends(current_user), db: Session = Depends(get_db)):
     try:
@@ -1125,20 +1284,66 @@ def checkout(u: User = Depends(current_user), db: Session = Depends(get_db)):
             if product.stock_qty < item.quantity:
                 raise HTTPException(400, f"Stock insuffisant pour {product.name}. Il reste {product.stock_qty} article(s) disponible(s), vous essayez d'en commander {item.quantity}.")
         
-        # Créer la commande - created_at sera automatiquement défini par le modèle
-        # Il est important de ne PAS modifier created_at après la création
-        order_data = {
-            "user_id": str(u.id),
-            "status": OrderStatus.CREE
-        }
-        order = order_repo.create(order_data)
-        # created_at est défini automatiquement par le modèle lors de la création
-        # Ne pas le modifier manuellement
-        
-        # Ajouter les articles et mettre à jour le stock
+        # Calculer le total attendu du panier pour détecter un paiement récent identique
+        cart_total_cents = 0
+        for item in cart.items:
+            product = product_repo.get_by_id(str(item.product_id))
+            cart_total_cents += product.price_cents * item.quantity
+
+        # Si une commande PAYEE récente avec le même total existe, la renvoyer (évite recréation)
+        try:
+            from datetime import datetime, UTC, timedelta
+            recent_window = timedelta(minutes=30)
+            existing_orders = order_repo.get_by_user_id(str(u.id))
+            for o in existing_orders:
+                try:
+                    if str(getattr(o, "status", "")) == OrderStatus.PAYEE.value:
+                        created_at = getattr(o, "created_at", None)
+                        if created_at and datetime.now(UTC) - created_at <= recent_window:
+                            paid_total = sum(getattr(oi, 'unit_price_cents', 0) * getattr(oi, 'quantity', 0) for oi in getattr(o, 'items', []) or [])
+                            if int(paid_total) == int(cart_total_cents):
+                                return CheckoutOut(
+                                    order_id=str(o.id),
+                                    total_cents=paid_total,
+                                    status=str(o.status)
+                                )
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # Réutiliser une commande ouverte (CREE) existante pour éviter les doublons
+        existing_orders = order_repo.get_by_user_id(str(u.id))
+        order = None
+        for o in existing_orders:
+            try:
+                if str(getattr(o, "status", "")) == OrderStatus.CREE.value:
+                    order = o
+                    break
+            except Exception:
+                continue
+
+        if order is None:
+            # Créer la commande - created_at sera automatiquement défini par le modèle
+            # Il est important de ne PAS modifier created_at après la création
+            order_data = {
+                "user_id": str(u.id),
+                "status": OrderStatus.CREE
+            }
+            order = order_repo.create(order_data)
+        else:
+            # Vider les items existants de la commande ouverte pour les resynchroniser avec le panier
+            try:
+                from database.models import OrderItem as _OrderItem
+                db.query(_OrderItem).filter(_OrderItem.order_id == order.id).delete()
+                db.commit()
+            except Exception:
+                db.rollback()
+
+        # Ajouter les articles (sans modifier le stock ni vider le panier ici)
+        # Le stock sera décrémenté et le panier vidé uniquement APRÈS paiement réussi
         total_cents = 0
         for item in cart.items:
-            # Récupérer le produit une seule fois
             product = product_repo.get_by_id(str(item.product_id))
             order_item_data = {
                 "order_id": str(order.id),
@@ -1149,19 +1354,6 @@ def checkout(u: User = Depends(current_user), db: Session = Depends(get_db)):
             }
             order_repo.add_item(order_item_data)
             total_cents += product.price_cents * item.quantity
-            
-            # Mettre à jour le stock du produit
-            product.stock_qty -= item.quantity
-            
-            # Inactiver le produit si le stock devient 0
-            if product.stock_qty <= 0:
-                product.active = False  # type: ignore
-                # Produit inactivé automatiquement (stock épuisé)
-            
-            product_repo.update(product)
-        
-        # Vider le panier
-        cart_repo.clear_cart(str(u.id))
         
         return CheckoutOut(
             order_id=str(order.id),
@@ -1468,7 +1660,7 @@ def admin_validate_order(order_id: str, u = Depends(require_admin), db: Session 
         
         # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande
         order.status = OrderStatus.VALIDEE  # type: ignore
-        order.validated_at = datetime.utcnow()  # type: ignore
+        order.validated_at = datetime.now(UTC)  # type: ignore
         # Utiliser update() qui modifie uniquement cette commande spécifique
         order_repo.update(order)
         
@@ -1517,8 +1709,11 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
             raise HTTPException(404, "Commande introuvable")
         
         # Vérifier que la commande peut être annulée
-        if str(order.status) not in [OrderStatus.CREE.value, OrderStatus.PAYEE.value]:
-            raise HTTPException(400, "Cette commande ne peut pas être annulée")
+        # On peut annuler si la commande n'a pas encore été expédiée
+        current_status = str(order.status)
+        cancellable_statuses = [OrderStatus.CREE.value, OrderStatus.VALIDEE.value, OrderStatus.PAYEE.value]
+        if current_status not in cancellable_statuses:
+            raise HTTPException(400, f"Cette commande ne peut pas être annulée (statut actuel: {current_status}). Seules les commandes avec le statut 'CREE', 'VALIDEE' ou 'PAYEE' peuvent être annulées.")
         
         # Vérifier si la commande a été payée
         was_paid = order.status == OrderStatus.PAYEE
@@ -1561,11 +1756,11 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
         # Sinon (commande non payée) → ANNULEE (rouge)
         if was_paid:
             order.status = OrderStatus.REMBOURSEE  # type: ignore
-            order.refunded_at = datetime.utcnow()  # type: ignore
+            order.refunded_at = datetime.now(UTC)  # type: ignore
         else:
             order.status = OrderStatus.ANNULEE  # type: ignore
         
-        order.cancelled_at = datetime.utcnow()  # type: ignore
+        order.cancelled_at = datetime.now(UTC)  # type: ignore
         # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
@@ -1577,7 +1772,10 @@ def cancel_order(order_id: str, uid: str = Depends(current_user_id), db: Session
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(400, str(e))
+        import traceback
+        print(f"Erreur lors de l'annulation de la commande: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(400, f"Erreur lors de l'annulation: {str(e)}")
 
 # ====================== PAIEMENTS ======================
 @app.post("/orders/{order_id}/pay")
@@ -1592,6 +1790,8 @@ def pay_order(order_id: str, payment_data: PayIn, uid: str = Depends(current_use
         
         order_repo = PostgreSQLOrderRepository(db)
         payment_repo = PostgreSQLPaymentRepository(db)
+        product_repo = PostgreSQLProductRepository(db)
+        cart_repo = PostgreSQLCartRepository(db)
         
         order = order_repo.get_by_id(order_id)
         if not order or str(order.user_id) != uid:
@@ -1682,6 +1882,34 @@ def pay_order(order_id: str, payment_data: PayIn, uid: str = Depends(current_use
         
         payment = payment_repo.create(payment_data_dict)
         
+        # Décrémenter le stock et potentiellement désactiver les produits après PAIEMENT réussi
+        # Seuil de masquage: si stock restant <= seuil, on met le produit inactif
+        import os
+        try:
+            threshold = int(os.getenv("LOW_STOCK_HIDE_THRESHOLD", "0"))
+        except Exception:
+            threshold = 0
+        for item in order.items:
+            product = product_repo.get_by_id(str(item.product_id))
+            if product:
+                # Décrémenter le stock; sécurité: ne pas descendre sous 0
+                try:
+                    current_stock = int(getattr(product, "stock_qty", 0) or 0)
+                except Exception:
+                    current_stock = 0
+                try:
+                    qty_to_decrement = int(getattr(item, "quantity", 0) or 0)
+                except Exception:
+                    qty_to_decrement = 0
+                new_stock = max(0, current_stock - qty_to_decrement)
+                product.stock_qty = new_stock  # type: ignore
+                if new_stock <= threshold:
+                    product.active = False  # type: ignore
+                product_repo.update(product)
+
+        # Vider le panier de l'utilisateur (il a payé)
+        cart_repo.clear_cart(uid)
+
         # Mettre à jour le statut de la commande
         order.status = OrderStatus.PAYEE  # type: ignore
         order.payment_id = payment.id
@@ -2186,7 +2414,7 @@ def admin_ship_order(order_id: str, delivery_data: DeliveryIn, u = Depends(requi
         # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
         # Modifier uniquement l'objet order récupéré, pas d'autres commandes
         order.status = OrderStatus.EXPEDIEE  # type: ignore
-        order.shipped_at = datetime.utcnow()  # type: ignore
+        order.shipped_at = datetime.now(UTC)  # type: ignore
         # Utiliser update() qui commit UNIQUEMENT les changements de cette commande
         order_repo.update(order)
         # Le commit inclut aussi la livraison ajoutée ci-dessus (même transaction)
@@ -2214,7 +2442,7 @@ def admin_mark_delivered(order_id: str, u = Depends(require_admin), db: Session 
         
         # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
         order.status = OrderStatus.LIVREE  # type: ignore
-        order.delivered_at = datetime.utcnow()  # type: ignore
+        order.delivered_at = datetime.now(UTC)  # type: ignore
         # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
@@ -2269,7 +2497,7 @@ def admin_refund_order(order_id: str, refund_data: RefundIn, u = Depends(require
         
         # Mettre à jour le statut et le timestamp UNIQUEMENT pour cette commande spécifique
         order.status = OrderStatus.REMBOURSEE  # type: ignore
-        order.refunded_at = datetime.utcnow()  # type: ignore
+        order.refunded_at = datetime.now(UTC)  # type: ignore
         # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
         order_repo.update(order)
         
@@ -2285,6 +2513,85 @@ def admin_refund_order(order_id: str, refund_data: RefundIn, u = Depends(require
     except Exception as e:
         # Erreur lors du remboursement de la commande
         raise HTTPException(400, f"Erreur lors du remboursement: {str(e)}")
+
+@app.post("/admin/orders/{order_id}/cancel")
+def admin_cancel_order(order_id: str, u = Depends(require_admin), db: Session = Depends(get_db)):
+    """Annule une commande (admin) avec remboursement automatique si payée"""
+    try:
+        order_repo = PostgreSQLOrderRepository(db)
+        product_repo = PostgreSQLProductRepository(db)
+        payment_repo = PostgreSQLPaymentRepository(db)
+        
+        order = order_repo.get_by_id(order_id)
+        if not order:
+            raise HTTPException(404, "Commande introuvable")
+        
+        # Vérifier que la commande peut être annulée
+        # On peut annuler si la commande n'a pas encore été expédiée
+        current_status = str(order.status)
+        cancellable_statuses = [OrderStatus.CREE.value, OrderStatus.VALIDEE.value, OrderStatus.PAYEE.value]
+        if current_status not in cancellable_statuses:
+            raise HTTPException(400, f"Cette commande ne peut pas être annulée (statut actuel: {current_status}). Seules les commandes avec le statut 'CREE', 'VALIDEE' ou 'PAYEE' peuvent être annulées.")
+        
+        # Vérifier si la commande a été payée
+        was_paid = order.status == OrderStatus.PAYEE
+        refund_info = None
+        
+        if was_paid:
+            # Récupérer les paiements pour la commande
+            payments = payment_repo.get_by_order_id(order_id)
+            if payments:
+                # Marquer les paiements comme remboursés
+                for payment in payments:
+                    payment.status = "REFUNDED"  # type: ignore
+                db.commit()
+                
+                # Calculer le montant total remboursé
+                total_refunded = sum(p.amount_cents for p in payments)
+                refund_info = {
+                    "refunded": True,
+                    "amount_cents": total_refunded,
+                    "message": f"Remboursement automatique de {total_refunded/100:.2f}€ effectué"
+                }
+        
+        # Remettre le stock en place pour chaque article
+        for item in order.items:
+            product = product_repo.get_by_id(str(item.product_id))
+            if product:
+                # Remettre le stock
+                product.stock_qty += item.quantity
+                
+                # Réactiver le produit s'il était inactif à cause du stock
+                if not product.active and product.stock_qty > 0:
+                    product.active = True  # type: ignore
+                
+                product_repo.update(product)
+        
+        # Mettre à jour le statut et les timestamps UNIQUEMENT pour cette commande spécifique
+        # Si la commande était payée et remboursée → REMBOURSEE (violet)
+        # Sinon (commande non payée) → ANNULEE (rouge)
+        if was_paid:
+            order.status = OrderStatus.REMBOURSEE  # type: ignore
+            order.refunded_at = datetime.now(UTC)  # type: ignore
+        else:
+            order.status = OrderStatus.ANNULEE  # type: ignore
+        
+        order.cancelled_at = datetime.now(UTC)  # type: ignore
+        # Utiliser update() qui modifie UNIQUEMENT cette commande, pas les autres
+        order_repo.update(order)
+        
+        response = {"ok": True, "message": f"Commande {order_id} annulée avec succès par l'admin"}
+        if refund_info:
+            response.update(refund_info)
+        
+        return response
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Erreur lors de l'annulation admin de la commande: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(400, f"Erreur lors de l'annulation: {str(e)}")
 
 # api_unified is available for test compatibility
 
