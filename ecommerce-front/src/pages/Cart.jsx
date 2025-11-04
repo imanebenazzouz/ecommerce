@@ -626,6 +626,9 @@ const btn = {
   borderRadius: 8,
   padding: "6px 10px",
   cursor: "pointer",
+  color: "#2563eb", // Bleu pour le texte
+  fontWeight: 700,
+  fontSize: "16px",
 };
 
 const btnLight = {
@@ -634,6 +637,8 @@ const btnLight = {
   borderRadius: 8,
   padding: "6px 10px",
   cursor: "pointer",
+  color: "#1f2937", // Noir/gris foncé pour le texte
+  fontWeight: 600,
 };
 
 const btnPrimary = {
